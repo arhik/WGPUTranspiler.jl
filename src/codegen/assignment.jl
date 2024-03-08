@@ -6,8 +6,21 @@ mutable struct LHS
 end
 
 mutable struct RHS
-	rhs::Union{Nothing, Symbol, Expr, Scalar}
+	rhs::Union{Nothing, Symbol, Expr, Scalar, JLExpr}
 end
+
+function inferScope!(scope, lhs::LHS)
+	if findVar(scope, lhs.variable.sym)
+		lhs.mutable = true
+	else
+		push!(scope.locals, lhs.variable.sym)
+	end
+end
+
+function inferScope!(scope, var::WGPUVariable)
+	@assert findVar(scope, var.sym) "Variable $(var.sym) is not in local and glocal scope"
+end
+
 
 struct AssignmentExpr <: JLExpr
 	lhs::LHS
@@ -15,15 +28,12 @@ struct AssignmentExpr <: JLExpr
 	scope::Union{Nothing, Scope} # TODO Is Scope mandatory ?
 end
 
-# TODO hardcoded for now
-function inferScope!(scope, var::LHS)
-	var.mutable = false
-end
-
 function assignExpr(scope, lhs, rhs)
 	lhsVar = LHS(inferVariable(lhs), false)
 	inferScope!(scope, lhsVar)
 	rhsExpr = RHS(inferExpr(scope, rhs))
-	return AssignmentExpr(lhsVar, rhsExpr, scope)
+	statement = AssignmentExpr(lhsVar, rhsExpr, scope)
+	push!(scope.code.args, statement)
+	return statement
 end
 

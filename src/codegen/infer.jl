@@ -3,12 +3,10 @@ using MacroTools
 export inferExpr, @infer
 
 function inferExpr(scope::Scope, expr::Expr)
-	scopeCntxt = scope
-	code = scope.code
 	if @capture(expr, lhs_ = rhs_)
-		push!(code.args, assignExpr(scopeCntxt, lhs, rhs))
+		return assignExpr(scope, lhs, rhs)
 	elseif @capture(expr, a_ + b_)
-		addExpr(scopeCntxt, a, b)
+		return addExpr(scope, a, b)
 	elseif @capture(expr, a_ - b_)
 		subExpr(scopeCntxt, a, b)
 	elseif @capture(expr, a_ * b_)
@@ -23,13 +21,12 @@ function inferExpr(scope::Scope, expr::Expr)
 end
 
 function inferVariable(expr::Expr)
-	if @capture(expr, a_::b_)
-		return WGPUVariable(a, eval(b))
-	elseif @capture(expr, a_)
-		return WGPUVariable(a, Any)
-	else
-		error("This variable is currently not handled")
-	end
+	@assert @capture(expr, a_::b_) "This expr : $expr doesn't fit the format a_::b_"
+	return WGPUVariable(a, eval(b))
+end
+
+function inferExpr(scope::Scope, a::Symbol)
+	return WGPUVariable(a, Any) #TODO should be infererred from scope
 end
 
 function inferExpr(scope::Scope, a::Number)
