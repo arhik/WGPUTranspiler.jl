@@ -18,7 +18,7 @@ function inferScope!(scope, lhs::LHS)
 end
 
 function inferScope!(scope, var::WGPUVariable)
-	@assert findVar(scope, var.sym) "Variable $(var.sym) is not in local and glocal scope"
+	@assert findVar(scope, var.sym) "Variable $(var.sym) is not in local and global scope"
 end
 
 
