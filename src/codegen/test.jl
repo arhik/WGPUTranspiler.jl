@@ -10,7 +10,7 @@ inferredExpr = inferExpr(
 	:(
 		for i in 0:1:10
 			println(i) 
-			a[i] = b[i]
+			a[i] += b[i]
 			c[i] = d[i] + c[i] + 1.0
 		end
 	)

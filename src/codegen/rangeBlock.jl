@@ -12,10 +12,6 @@ struct RangeExpr <: JLExpr
 	step::Union{WGPUVariable, Scalar}
 end
 
-function rangeExpr()
-	
-end
-
 
 function inferExpr(scope::Scope, range::StepRangeLen)
 	@error "Not implemented yet"
