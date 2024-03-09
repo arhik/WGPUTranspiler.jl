@@ -33,7 +33,15 @@ function assignExpr(scope, lhs, rhs)
 	inferScope!(scope, lhsVar)
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	statement = AssignmentExpr(lhsVar, rhsExpr, scope)
-	push!(scope.code.args, statement)
+	#push!(scope.code.args, statement)
 	return statement
 end
+
+function toWGSLCode(jlexpr::AssignExpr)
+	return quote
+		#if $(jlexpr.lhs.variable.mutable)
+		#	@var $(jlexpr.lhs.variable.sym)
+	end
+end
+
 

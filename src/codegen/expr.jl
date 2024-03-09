@@ -34,3 +34,7 @@ function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
 	end
 	return CallExpr(func, arguments)
 end
+
+function inferScope!(scope::Scope, jlexpr::CallExpr)
+	# We don't have to anything for now
+end
