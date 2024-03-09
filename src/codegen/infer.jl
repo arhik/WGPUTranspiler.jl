@@ -28,6 +28,7 @@ end
 
 function inferVariable(scope, expr::Expr)
 	if @capture(expr, a_::b_)
+		push!(scope.locals, a)
 		return WGPUVariable(a, eval(b))
 	elseif @capture(expr, a_[b_])
 		return indexExpr(scope, a, b)
@@ -41,6 +42,26 @@ function inferVariable(scope, sym::Symbol)
 	return WGPUVariable(sym, Any)
 end
 
+function inferRange(scope, expr::Expr)
+	if @capture(expr, a_:b_)
+		start = inferExpr(scope, a)
+		inferScope!(scope, start)
+		stop = inferExpr(scope, b)
+		inferScope!(scope, stop)
+		step = inferExpr(scope, 1)
+		inferScope!(scope, step)
+		return RangeExpr(start, stop, step)
+	elseif @capture(expr, a_:b_:c_)
+		start = inferExpr(scope, a)
+		inferScope!(scope, start)
+		stop = inferExpr(scope, b)
+		inferScope!(scope, stop)
+		step = inferExpr(scope, c)
+		inferScope!(scope, step)
+		return RangeExpr(start, stop, step)
+	end
+end
+
 function inferExpr(scope::Scope, a::Symbol)
 	return WGPUVariable(a, Any) #TODO should be infererred from scope
 end
@@ -52,6 +73,8 @@ end
 function inferExpr(scope::Scope, a::WGPUScalarType)
 	return Scalar(a)
 end
+
+inferExpr(scope::Scope, a::Scalar) = a
 
 macro infer(cntxt, expr)
 	inferExpr(cntxt, expr)

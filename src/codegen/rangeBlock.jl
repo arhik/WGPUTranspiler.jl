@@ -1,23 +1,35 @@
 struct RangeBlock <: JLExpr
-	start::Scalar
-	stop::Scalar
-	step::Scalar
-	idx::Union{Symbol, WGPUVariable}
+	start::Union{WGPUVariable, Scalar}
+	stop::Union{WGPUVariable, Scalar}
+	step::Union{WGPUVariable, Scalar}
+	idx::Union{WGPUVariable}
 	block::Vector{JLExpr}
 end
 
+struct RangeExpr <: JLExpr
+	start::Union{WGPUVariable, Scalar}
+	stop::Union{WGPUVariable, Scalar}
+	step::Union{WGPUVariable, Scalar}
+end
+
+function rangeExpr()
+	
+end
+
+
+function inferExpr(scope::Scope, range::StepRangeLen)
+	@error "Not implemented yet"
+end
+
 function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
-	childScope = Scope([idx], [], 1, scope, :())
-	idxExpr = inferExpr(scope, idx)
-	inferScope!(childScope, idxExpr)
 	# TODO deal with StepRangeLen also may be ? I don't see its use though.
-	rangeExpr = Base.eval(range)
-	startExpr = inferExpr(childScope, rangeExpr.start)
-	inferScope!(childScope, startExpr)
-	stopExpr = inferExpr(childScope, rangeExpr.stop)
-	inferScope!(childScope, stopExpr)
-	stepExpr = inferExpr(childScope, rangeExpr.step)
-	inferScope!(childScope, stepExpr)
+	childScope = Scope([], [], scope.depth + 1, scope, :())
+	rangeExpr = inferRange(childScope, range)
+	startExpr = rangeExpr.start
+	stopExpr =  rangeExpr.stop
+	stepExpr = rangeExpr.step
+	idxExpr = inferVariable(childScope, :($idx::UInt32))
+	inferScope!(childScope, idxExpr)
 	exprArray = JLExpr[]
 	for stmnt in block
 		push!(exprArray, inferExpr(childScope, stmnt))
