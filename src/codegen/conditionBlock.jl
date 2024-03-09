@@ -17,3 +17,5 @@ function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
 	end
 	return IfBlock(condExpr, exprArray)
 end
+
+symbol(iff::IfBlock) = (symbol(iff.cond), map(symbol, iff.block)...)

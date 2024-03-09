@@ -47,6 +47,9 @@ function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
 	return CallExpr(func, arguments)
 end
 
+symbol(a::Vector{T}) where T <: Union{WGPUVariable, Scalar, JLExpr} = (map(symbol, a))
+symbol(callexpr::CallExpr) = (symbol(callexpr.func), symbol(callexpr.args))
+
 function inferScope!(scope::Scope, jlexpr::CallExpr)
 	# We don't have to do anything for now
 end

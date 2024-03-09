@@ -11,7 +11,7 @@ inferredExpr = inferExpr(
 		if a > 0
 			println(i) 
 			a[i] += b[i]
-			c[i] = d[i] + c[i] + 1.0
+			c[i] += d[i] + c[i] + 1.0
 		end
 	)
 )

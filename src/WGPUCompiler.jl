@@ -12,5 +12,7 @@ include("codegen/conditionBlock.jl")
 include("codegen/expr.jl")
 include("codegen/infer.jl")
 include("codegen/resolve.jl")
+include("codegen/transpile.jl")
+include("codegen/tree.jl")
 
 end # module WGPUCompiler
