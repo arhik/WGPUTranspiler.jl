@@ -19,6 +19,8 @@ function inferExpr(scope::Scope, expr::Expr)
 		return indexExpr(scope, a, b)
 	elseif @capture(expr, a_.b_)
 		return accessExpr(scope, a, b)
+	elseif @capture(expr, for idx_ in range_ block__ end)
+		return rangeBlock(scope, idx, range, block)
 	else
 		error("Couldn't capture $expr")
 	end
