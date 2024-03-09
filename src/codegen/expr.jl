@@ -24,7 +24,7 @@ end
 # CallExpression 
 struct CallExpr <: JLExpr
 	func::Union{WGPUVariable, JLExpr}
-	args::Vector{Union{WGPUVariable, JLExpr}}
+	args::Vector{Union{WGPUVariable, Scalar, JLExpr}}
 end
 
 function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
