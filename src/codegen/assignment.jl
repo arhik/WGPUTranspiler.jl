@@ -1,19 +1,27 @@
 export Scalar, assignExpr
 
 mutable struct LHS
-	variable::WGPUVariable
+	variable::Union{WGPUVariable, JLExpr}
 	mutable::Bool
+	# isnew::Bool
 end
+
+symbol(lhs::LHS) = symbol(lhs.variable)
 
 mutable struct RHS
-	rhs::Union{Nothing, Symbol, Expr, Scalar, JLExpr}
+	rhs::Union{Nothing, Symbol, Scalar, JLExpr}
 end
 
+symbol(rhs::RHS) = symbol(rhs.variable)
+symbol(::Nothing) = nothing
+symbol(sym::Symbol) = sym
+
 function inferScope!(scope, lhs::LHS)
-	if findVar(scope, lhs.variable.sym)
+	sym = symbol(lhs)
+	if findVar(scope, sym)
 		lhs.mutable = true
 	else
-		push!(scope.locals, lhs.variable.sym)
+		push!(scope.locals, sym)
 	end
 end
 
@@ -28,8 +36,10 @@ struct AssignmentExpr <: JLExpr
 	scope::Union{Nothing, Scope} # TODO Is Scope mandatory ?
 end
 
+symbol(assign::AssignmentExpr) = symbol(assign.lhs)
+
 function assignExpr(scope, lhs, rhs)
-	lhsVar = LHS(inferVariable(lhs), false)
+	lhsVar = LHS(inferVariable(scope, lhs), false)
 	inferScope!(scope, lhsVar)
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	statement = AssignmentExpr(lhsVar, rhsExpr, scope)

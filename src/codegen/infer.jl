@@ -22,12 +22,18 @@ function inferExpr(scope::Scope, expr::Expr)
 	end
 end
 
-function inferVariable(expr::Expr)
-	@assert @capture(expr, a_::b_) "This expr : $expr doesn't fit the format a_::b_"
-	return WGPUVariable(a, eval(b))
+function inferVariable(scope, expr::Expr)
+	if @capture(expr, a_::b_)
+		return WGPUVariable(a, eval(b))
+	elseif @capture(expr, a_[b_])
+		return indexExpr(scope, a, b)
+	else
+		error("This expression $expr type is not captured yet")
+	end
 end
 
-function inferVariable(sym::Symbol)
+function inferVariable(scope, sym::Symbol)
+	#TODO DataType needs to inferred from scope
 	return WGPUVariable(sym, Any)
 end
 

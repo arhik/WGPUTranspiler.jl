@@ -40,5 +40,30 @@ function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
 end
 
 function inferScope!(scope::Scope, jlexpr::CallExpr)
-	# We don't have to anything for now
+	# We don't have to do anything for now
 end
+
+# IndexExpressions
+struct IndexExpr <: JLExpr
+	sym::Union{WGPUVariable, JLExpr}
+	idx::Union{WGPUVariable, Scalar, JLExpr}
+end
+
+symbol(idxExpr::IndexExpr) = symbol(idxExpr.sym)
+
+function indexExpr(scope::Scope, sym::Union{Symbol, WGPUVariable, Expr}, idx::Union{Symbol, Number, Expr})
+	symExpr = inferExpr(scope, sym)
+	inferScope!(scope, symExpr)
+	idxExpr = inferExpr(scope, idx)
+	inferScope!(scope, idxExpr)
+	return IndexExpr(symExpr, idxExpr)
+end
+
+
+# AccessorExpression
+struct AccessorExpr<: JLExpr
+	sym::Union{Symbol, JLExpr}
+	field::Union{Symbol, JLExpr}
+end
+
+

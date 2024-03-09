@@ -26,3 +26,6 @@ function findVar(scope::Union{Nothing, Scope}, sym::Symbol)
 	end
 end
 
+function inferScope!(scope, scalar::Scalar)
+	# Do nothing
+end

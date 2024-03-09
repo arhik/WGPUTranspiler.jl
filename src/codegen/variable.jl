@@ -19,6 +19,8 @@ struct WGPUVariable <: AbstractWGPUVariable
 	dataType::DataType
 end
 
+symbol(var::WGPUVariable) = var.sym
+
 function transpile(var::WGPUVariable)
 	if var.dataType == Any
 		return :($(var.sym))
