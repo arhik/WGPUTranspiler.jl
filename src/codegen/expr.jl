@@ -51,7 +51,7 @@ end
 
 symbol(idxExpr::IndexExpr) = symbol(idxExpr.sym)
 
-function indexExpr(scope::Scope, sym::Union{Symbol, WGPUVariable, Expr}, idx::Union{Symbol, Number, Expr})
+function indexExpr(scope::Scope, sym::Union{Symbol, Expr}, idx::Union{Symbol, Number, Expr})
 	symExpr = inferExpr(scope, sym)
 	inferScope!(scope, symExpr)
 	idxExpr = inferExpr(scope, idx)
@@ -59,11 +59,26 @@ function indexExpr(scope::Scope, sym::Union{Symbol, WGPUVariable, Expr}, idx::Un
 	return IndexExpr(symExpr, idxExpr)
 end
 
+function inferScope!(scope::Scope, jlexpr::IndexExpr)
 
-# AccessorExpression
-struct AccessorExpr<: JLExpr
-	sym::Union{Symbol, JLExpr}
-	field::Union{Symbol, JLExpr}
 end
 
+# AccessorExpression
+struct AccessExpr<: JLExpr
+	sym::Union{WGPUVariable, JLExpr}
+	field::Union{WGPUVariable, JLExpr}
+end
 
+function accessExpr(scope::Scope, sym::Union{Symbol, Expr}, field::Union{Symbol, Expr})
+	symExpr = inferExpr(scope, sym)
+	inferScope!(scope, symExpr)
+	fieldExpr = inferExpr(scope, field)
+	inferScope!(scope, fieldExpr)
+	return AccessExpr(symExpr, fieldExpr)
+end
+
+symbol(access::AccessExpr) = symbol(access.sym)
+
+function inferScope!(scope::Scope, jlexpr::AccessExpr)
+	
+end
