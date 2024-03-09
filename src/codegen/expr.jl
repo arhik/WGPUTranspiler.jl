@@ -1,18 +1,22 @@
-# AddExpression
-struct AddExpr <: JLExpr
+# BinaryExpressions
+struct BinaryExpr <: BinaryOp
+	op::Union{Symbol, Function}
 	left::Union{WGPUVariable, JLExpr}
 	right::Union{WGPUVariable, JLExpr}
 end
 
-function addExpr(scope::Scope, a::Union{Symbol, Expr}, b::Union{Symbol, Expr})
+function binaryOp(scope::Scope, op::Union{Symbol, Function}, a::Union{Symbol, Expr}, b::Union{Symbol, Expr})
+	@assert op in [:+, :-, :/, :*] #TODO other list
 	lOperand = inferExpr(scope, a)
 	inferScope!(scope, lOperand)
 	rOperand = inferExpr(scope, b)
 	inferScope!(scope, rOperand)
-	return AddExpr(lOperand, rOperand)
+	return BinaryExpr(op, lOperand, rOperand)
 end
 
-function inferScope!(scope::Scope, jlexpr::AddExpr)
+
+# Common inferScope! for all binary operations
+function inferScope!(scope::Scope, jlexpr::BinaryOp)
 	@assert findVar(scope, jlexpr.left.sym) "$(jlexpr.left.sym) is not found in this scope"
 	@assert findVar(scope, jlexpr.right.sym) "$(jlexpr.left.sym) is not found in this scope"
 end
