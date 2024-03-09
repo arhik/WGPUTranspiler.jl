@@ -15,6 +15,7 @@ end
 symbol(rhs::RHS) = symbol(rhs.variable)
 symbol(::Nothing) = nothing
 symbol(sym::Symbol) = sym
+symbol(::Scalar) = nothing
 
 function inferScope!(scope, lhs::LHS)
 	sym = symbol(lhs)

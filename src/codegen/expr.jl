@@ -1,11 +1,11 @@
 # BinaryExpressions
 struct BinaryExpr <: BinaryOp
 	op::Union{Symbol, Function}
-	left::Union{WGPUVariable, JLExpr}
-	right::Union{WGPUVariable, JLExpr}
+	left::Union{WGPUVariable, Scalar, JLExpr}
+	right::Union{WGPUVariable, Scalar, JLExpr}
 end
 
-function binaryOp(scope::Scope, op::Union{Symbol, Function}, a::Union{Symbol, Expr}, b::Union{Symbol, Expr})
+function binaryOp(scope::Scope, op::Union{Symbol, Function}, a::Union{Symbol, Number, Expr}, b::Union{Number, Symbol, Expr})
 	#@assert op in [:+, :-, :/, :*] #TODO other list
 	lOperand = inferExpr(scope, a)
 	inferScope!(scope, lOperand)
@@ -14,11 +14,19 @@ function binaryOp(scope::Scope, op::Union{Symbol, Function}, a::Union{Symbol, Ex
 	return BinaryExpr(op, lOperand, rOperand)
 end
 
+function symbol(binOp::BinaryExpr)
+	syms = map(symbol, (binOp.left, binOp.right)) 
+	return syms
+end
 
 # Common inferScope! for all binary operations
 function inferScope!(scope::Scope, jlexpr::BinaryOp)
-	@assert findVar(scope, jlexpr.left.sym) "$(jlexpr.left.sym) is not found in this scope"
-	@assert findVar(scope, jlexpr.right.sym) "$(jlexpr.left.sym) is not found in this scope"
+	syms = symbol(jlexpr)
+	for sym in syms
+		if sym != nothing
+			@assert findVar(scope, sym) "$(jlexpr.left.sym) is not found in this scope"
+		end
+	end
 end
 
 # CallExpression 
