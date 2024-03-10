@@ -22,7 +22,6 @@ transpile(scope, binOp::BinaryOp, op::Val{:(+=)}) = :($(transpile(scope, binOp.l
 transpile(scope, binOp::BinaryOp, op::Val{:(-=)}) = :($(transpile(scope, binOp.left)) -= $(transpile(scope, binOp.right)))
 
 function transpile(scope, a::AssignmentExpr)
-	@infiltrate
 	lExpr = transpile(scope, a.lhs)
 	rExpr = transpile(scope, a.rhs)
 	if @capture(lExpr, @var_(v_))
@@ -36,3 +35,13 @@ function transpile(scope, cExpr::CallExpr)
 	return Expr(:call, transpile(scope, cExpr.func), map(x -> transpile(scope, x), cExpr.args)...)
 end
 
+function transpile(scope, idxExpr::IndexExpr)
+	return Expr(:ref, transpile(scope, idxExpr.sym), transpile(scope, idxExpr.idx))
+end
+
+transpile(scope, idxExpr::IndexExpr, ::Val{true}) = transpile(scope, idxExpr::IndexExpr)
+transpile(scope, idxExpr::IndexExpr, ::Val{false}) = error("This variable cannot be indexed")
+
+function transpile(scope, acsExpr::AccessExpr)
+	
+end
