@@ -24,3 +24,14 @@ transpile(scope, inferredExpr)
 scope = Scope([:a, :d, :b, :c], [:g, :+], 0, nothing, quote end)
 inferredExpr = inferExpr(scope, :(a.c[1] = g.b[1]))
 transpile(scope, inferredExpr)
+
+scope = Scope([:a, :d, :b, :c], [:g, :println, :+], 0, nothing, quote end)
+inferredExpr = inferExpr(
+	scope, 
+	:(for i in 0:1:12 
+		println(i) 
+		a[i] = b[i]
+		c[i] = d[i] + c[i] + 1.0
+	end)
+)
+transpile(scope, inferredExpr)

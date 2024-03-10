@@ -3,8 +3,8 @@ export transpile
 transpile(scope, s::Scalar) = s.element
 transpile(scope, var::WGPUVariable) = var.dataType == Any ? :($(var.sym)) : :($(var.sym)::$(var.dataType))
 transpile(scope, lhs::LHS) = transpile(scope, lhs.variable, Val(lhs.mutable))
-transpile(scope, var::WGPUVariable, ::Val{true}) = :(@var $(transpile(scope, var)))
-transpile(scope, var::WGPUVariable, ::Val{false}) = :($(var.sym))
+transpile(scope, var::WGPUVariable, ::Val{false}) = :(@var $(transpile(scope, var)))
+transpile(scope, var::WGPUVariable, ::Val{true}) = :($(var.sym))
 transpile(scope, rhs::RHS) = transpile(scope, rhs.rhsExpr)
 transpile(scope, binOp::BinaryOp) = transpile(scope, binOp, Val(binOp.op))
 
@@ -45,3 +45,12 @@ transpile(scope, idxExpr::IndexExpr, ::Val{false}) = error("This variable cannot
 function transpile(scope, acsExpr::AccessExpr)
 	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
+
+function transpile(scope, rblock::RangeBlock)
+	(start, step, stop) = map(x -> transpile(scope, x), (rblock.start, rblock.step, rblock.stop))
+	range = :($start:$step:$stop)
+	block = map(x -> transpile(scope, x), rblock.block)
+	idx = transpile(scope, rblock.idx)
+	return Expr(:for, Expr(:(=), idx, range), quote $(block...) end)
+end
+

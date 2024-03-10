@@ -1,15 +1,15 @@
 struct RangeBlock <: JLExpr
 	start::Union{WGPUVariable, Scalar}
-	stop::Union{WGPUVariable, Scalar}
 	step::Union{WGPUVariable, Scalar}
+	stop::Union{WGPUVariable, Scalar}
 	idx::Union{WGPUVariable}
 	block::Vector{JLExpr}
 end
 
 struct RangeExpr <: JLExpr
 	start::Union{WGPUVariable, Scalar}
-	stop::Union{WGPUVariable, Scalar}
 	step::Union{WGPUVariable, Scalar}
+	stop::Union{WGPUVariable, Scalar}
 end
 
 
@@ -30,5 +30,5 @@ function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
 	for stmnt in block
 		push!(exprArray, inferExpr(childScope, stmnt))
 	end
-	rangeBlockExpr = RangeBlock(startExpr, stopExpr, stepExpr, idxExpr, exprArray)
+	rangeBlockExpr = RangeBlock(startExpr, stepExpr, stopExpr, idxExpr, exprArray)
 end
