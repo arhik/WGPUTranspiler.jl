@@ -55,7 +55,6 @@ function transpile(scope::Scope, rblock::RangeBlock)
 end
 
 function transpile(scope::Scope, ifblock::IfBlock)
-	@infiltrate
 	c = transpile(scope, ifblock.cond)
 	block = map(x -> transpile(scope, x), ifblock.block)
 	return Expr(:if, c, quote $(block...) end)
