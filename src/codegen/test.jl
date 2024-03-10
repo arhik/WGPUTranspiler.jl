@@ -28,10 +28,23 @@ transpile(scope, inferredExpr)
 scope = Scope([:a, :d, :b, :c], [:g, :println, :+], 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
-	:(for i in 0:1:12 
+	:(for i in 0:1:12
 		println(i) 
 		a[i] = b[i]
 		c[i] = d[i] + c[i] + 1.0
+	end)
+)
+transpile(scope, inferredExpr)
+
+scope = Scope([:a, :d, :b, :c], [:g, :println, :+], 0, nothing, quote end)
+inferredExpr = inferExpr(
+	scope, 
+	:(for i in 0:1:12
+		for j in 1:2:40
+			println(i, j) 
+			a[j] = b[i]
+			c[i] = d[i] + c[i] + 1.0
+		end
 	end)
 )
 transpile(scope, inferredExpr)
