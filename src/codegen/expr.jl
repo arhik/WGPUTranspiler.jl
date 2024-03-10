@@ -6,7 +6,6 @@ struct BinaryExpr <: BinaryOp
 end
 
 function binaryOp(scope::Scope, op::Union{Symbol, Function}, a::Union{Symbol, Number, Expr}, b::Union{Number, Symbol, Expr})
-	#@assert op in [:+, :-, :/, :*] #TODO other list
 	lOperand = inferExpr(scope, a)
 	inferScope!(scope, lOperand)
 	rOperand = inferExpr(scope, b)

@@ -37,6 +37,8 @@ function inferExpr(scope::Scope, expr::Expr)
 		return rangeBlock(scope, idx, range, block)
 	elseif @capture(expr, if cond_ block__ end)
 		return ifBlock(scope, cond, block)
+	elseif @capture(expr, if cond_ ifblock__ else elseblock__ end)
+		return ifelseBlock(scope, cond, ifblock, elseblock)
 	else
 		error("Couldn't capture $expr")
 	end

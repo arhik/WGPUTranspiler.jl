@@ -9,7 +9,7 @@ end
 symbol(lhs::LHS) = symbol(lhs.variable)
 
 mutable struct RHS
-	rhs::Union{Nothing, Symbol, Scalar, JLExpr}
+	rhs::Union{Nothing, WGPUVariable, Scalar, JLExpr}
 end
 
 symbol(rhs::RHS) = symbol(rhs.variable)
