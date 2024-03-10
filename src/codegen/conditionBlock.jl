@@ -2,9 +2,10 @@ struct Condition <: JLExpr
 	cond::Union{WGPUVariable, Scalar, JLExpr}
 end
 
-struct IfBlock <: JLExpr
+struct IfBlock <: JLBlock
 	cond::JLExpr
 	block::Vector{JLExpr}
+	scope::Union{Nothing, Scope}
 end
 
 function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
@@ -15,7 +16,7 @@ function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
 	for jlexpr in block
 		push!(exprArray, inferExpr(childScope, jlexpr))
 	end
-	return IfBlock(condExpr, exprArray)
+	return IfBlock(condExpr, exprArray, scope)
 end
 
 symbol(iff::IfBlock) = (symbol(iff.cond), map(symbol, iff.block)...)
