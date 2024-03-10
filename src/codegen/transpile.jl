@@ -43,5 +43,5 @@ transpile(scope, idxExpr::IndexExpr, ::Val{true}) = transpile(scope, idxExpr::In
 transpile(scope, idxExpr::IndexExpr, ::Val{false}) = error("This variable cannot be indexed")
 
 function transpile(scope, acsExpr::AccessExpr)
-	
+	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
