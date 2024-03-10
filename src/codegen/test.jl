@@ -1,12 +1,10 @@
 using Revise
 using WGPUCompiler
-using AbstractTrees
-using WGSLTypes
 
-scope = Scope([:i, :a, :d, :b, :c], [:g, :println, :+], 0, nothing, quote end)
+scope = Scope([:a, :b, :c], [], 0, nothing, quote end)
+aExpr = inferExpr(scope, :(a::Int32 = b + c))
+transpile(scope, aExpr)
 
-inferredExpr = inferExpr(
-	scope, 
-	:(c = d)
-)
-
+scope = Scope([:a, :b, :c], [:+, :g], 0, nothing, quote end)
+cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(a + b + b + c) + g(2, 3, c)))
+transpile(scope, cExpr)
