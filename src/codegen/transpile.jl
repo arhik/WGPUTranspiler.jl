@@ -60,3 +60,10 @@ function transpile(scope::Scope, ifblock::IfBlock)
 	return Expr(:if, c, quote $(block...) end)
 end
 
+function transpile(scope::Scope, funcblk::FuncBlock)
+	fn = transpile(scope, funcblk.fname)
+	fa = map(x -> transpile(scope, x), funcblk.fargs)
+	fb = map(x -> transpile(scope, x), funcblk.fbody)
+	return Expr(:function, Expr(:call, fn, fa...), quote $(fb...) end)
+end
+

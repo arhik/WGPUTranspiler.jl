@@ -59,3 +59,18 @@ inferredExpr = inferExpr(
 	end)
 )
 transpile(scope, inferredExpr)
+
+scope = Scope([:a, :d, :b, :c], [:g, :i, :println, :+], 0, nothing, quote end)
+inferredExpr = inferExpr(
+	scope, 
+	:(function test(a::Int32, b::Float32)
+		if a > 0
+			println(i) 
+			a[i] = b[i]
+			c[i] = d[i] + c[i] + 1.0
+		end
+	end)
+)
+transpile(scope, inferredExpr)
+
+
