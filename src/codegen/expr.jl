@@ -20,12 +20,16 @@ end
 
 # Common inferScope! for all binary operations
 function inferScope!(scope::Scope, jlexpr::BinaryOp)
+	inferScope!(scope, jlexpr.left)
+	inferScope!(scope, jlexpr.right)
+	"""
 	syms = symbol(jlexpr)
 	for sym in syms
 		if sym != nothing
 			@assert findVar(scope, sym) "$(jlexpr.left.sym) is not found in this scope"
 		end
 	end
+	"""
 end
 
 # CallExpression 
@@ -70,7 +74,7 @@ function indexExpr(scope::Scope, sym::Union{Symbol, Expr}, idx::Union{Symbol, Nu
 end
 
 function inferScope!(scope::Scope, jlexpr::IndexExpr)
-
+	
 end
 
 # AccessorExpression
@@ -79,16 +83,24 @@ struct AccessExpr<: JLExpr
 	field::Union{WGPUVariable, JLExpr}
 end
 
-function accessExpr(scope::Scope, sym::Union{Symbol, Expr}, field::Union{Symbol, Expr})
+function accessExpr(scope::Scope, sym::Symbol, field::Symbol)
 	symExpr = inferExpr(scope, sym)
-	inferScope!(scope, symExpr)
 	fieldExpr = inferExpr(scope, field)
-	inferScope!(scope, fieldExpr)
-	return AccessExpr(symExpr, fieldExpr)
+	aExpr = AccessExpr(symExpr, fieldExpr)
+	inferScope!(scope, aExpr)
+	return aExpr
+end
+
+function accessExpr(scope::Scope, parent::Expr, field::Symbol)
+	parentExpr = inferExpr(scope, parent)
+	childExpr = inferExpr(scope, field)
+	aExpr = AccessExpr(symExpr, fieldExpr)
+	inferScope!(scope, aExpr)
+	return aExpr
 end
 
 symbol(access::AccessExpr) = symbol(access.sym)
 
 function inferScope!(scope::Scope, jlexpr::AccessExpr)
-	
+
 end
