@@ -1,2 +1,2 @@
-# WGPUCompiler
- Compiles Julia Code to WGSL
+# WGPUTranspiler
+ Transpiles Julia Code to WGSL

@@ -1,4 +1,4 @@
-name = "WGPUCompiler"
+name = "WGPUTranspiler"
 uuid = "e2278aa8-582f-4560-9362-4c5cc370c803"
 authors = ["Arhik <arhik23@gmail.com>"]
 version = "0.1.0"
@@ -6,5 +6,7 @@ version = "0.1.0"
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+CodeTracking = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
 Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+WGPUCompute = "494b1f74-06dd-4437-8477-4a86f2a8d703"
