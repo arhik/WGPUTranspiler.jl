@@ -43,15 +43,22 @@ function inferExpr(scope::Scope, expr::Expr)
 		return funcBlock(scope, fname, fargs, fbody)
 	elseif 	@capture(expr, function fname_(fargs__) where Targs__ fbody__ end)
 		return funcBlock(scope, fname, fargs, Targs, fbody)
+	elseif 	@capture(expr, @wgpukernel islaunch_ workgroupSize_ workgroupCount_ function fname_(fargs__) where Targs__ fbody__ end)
+		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, fname, fargs, Targs, fbody)
+	elseif 	@capture(expr, @wgpukernel islaunch_ workgroupSize_ workgroupCount_ fname_(fargs__))
+		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, fname, fargs)
 	else
 		error("Couldn't capture $expr")
 	end
 end
 
 function inferVariable(scope, expr::Expr)
-	if @capture(expr, a_::b_)
+	if @capture(expr, a_::b_{t__})
 		push!(scope.locals, a)
-		return WGPUVariable(a, eval(b))
+		return WGPUVariable(a, eval(b), Generic, nothing, ) # TODO t is ignored
+	elseif @capture(expr, a_::b_)
+		push!(scope.locals, a)
+		return WGPUVariable(a, eval(b), Generic, nothing, )
 	elseif @capture(expr, a_[b_])
 		return indexExpr(scope, a, b)
 	else
@@ -59,9 +66,14 @@ function inferVariable(scope, expr::Expr)
 	end
 end
 
+function inferVariable(scope, array::WgpuArray)
+	# push!(scope.globals, )
+	@error "This should not have happened"
+end
+
 function inferVariable(scope, sym::Symbol)
 	#TODO DataType needs to inferred from scope
-	return WGPUVariable(sym, Any)
+	return WGPUVariable(sym, Any, Generic, nothing, )
 end
 
 function inferRange(scope, expr::Expr)
@@ -85,7 +97,13 @@ function inferRange(scope, expr::Expr)
 end
 
 function inferExpr(scope::Scope, a::Symbol)
-	return WGPUVariable(a, Any) #TODO should be infererred from scope
+	if a == :workgroupDims
+		return WGPUVariable(a, WorkGroupDims, Dims, nothing, )
+	elseif a == :workgroupId
+		return WGPUVariable(a, WorkGroupId, Intrinsic, nothing,)
+	else
+		return WGPUVariable(a, Any, Generic, nothing, )
+	end
 end
 
 function inferExpr(scope::Scope, a::Number)

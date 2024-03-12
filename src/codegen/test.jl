@@ -1,5 +1,7 @@
 using Revise
-using WGPUCompiler
+using WGPUTranspiler
+using WGPUCompute
+using CodeTracking
 
 scope = Scope([:a, :b, :c], [], 0, nothing, quote end)
 aExpr = inferExpr(scope, :(a::Int32 = b + c))
@@ -70,6 +72,27 @@ inferredExpr = inferExpr(
 			c[i] = d[i] + c[i] + 1.0
 		end
 	end)
+)
+transpile(scope, inferredExpr)
+
+
+function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
+	xdim = workgroupDims.x
+	ydim = workgroupDims.y
+	gIdx = workgroupId.x*xdim + localId.x
+	gIdy = workgroupId.y*ydim + localId.y
+	gId = xDims.x*gIdy + gIdx
+	out[gId] = S(ceil(x[gId]))
+end	
+
+
+a = WgpuArray(rand(Float32, 4, 4));
+b = WgpuArray(rand(Float32, 4, 4));
+
+scope = Scope([], [], 0, nothing, quote end)
+inferredExpr = inferExpr(
+	scope, 
+	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
 )
 transpile(scope, inferredExpr)
 
