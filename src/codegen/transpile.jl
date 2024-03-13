@@ -79,5 +79,6 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	fn = transpile(scope::Scope, computeBlk.fname)
 	fa = map(x -> transpile(scope, x), computeBlk.fargs)
 	fb = map(x -> transpile(scope, x), computeBlk.fbody)
-	return Expr(:function, Expr(:call, fn, fa...), quote $(fb...) end) |> MacroTools.striplines
+	ta = map(x -> transpile(scope, x), computeBlk.Targs)
+	return Expr(:function, Expr(:where, Expr(:call, fn, fa...), ta...), quote $(fb...) end) |> MacroTools.striplines
 end
