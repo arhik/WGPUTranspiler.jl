@@ -23,7 +23,7 @@ end
 
 struct ComputeBlock <: JLBlock
 	fname::WGPUVariable
-	fargs::Vector{WGPUVariable}
+	fargs::Vector{DeclExpr}
 	Targs::Vector{WGPUVariable}
 	fbody::Vector{JLExpr}
 	scope::Union{Nothing, Scope}
@@ -35,7 +35,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, fname, fargs)
 	@capture(fexpr, function fname_(fargs__) where Targs__ fbody__ end)
 	childScope = Scope([Targs...], [:ceil], 0, scope, quote end)
 	fn = inferExpr(childScope, fname)
-	fa = map(x -> inferVariable(childScope, x), fargs)
+	fa = map(x -> inferExpr(childScope, x), fargs)
 	fb = map(x -> inferExpr(childScope, x), fbody)
 	return ComputeBlock(fn, fa, WGPUVariable[], fb, childScope)
 end

@@ -102,5 +102,22 @@ end
 symbol(access::AccessExpr) = symbol(access.sym)
 
 function inferScope!(scope::Scope, jlexpr::AccessExpr)
-
+	#inferScope!(scope, jlexpr.sym)
+	#inferScope!(scope, jlexpr.field)
 end
+
+struct TypeExpr <: JLExpr
+	sym::WGPUVariable
+	types::Vector{WGPUVariable}
+end
+
+symbol(tExpr::TypeExpr) = (symbol(tExpr.sym), map(x -> symbol(x), tExpr.types)...)
+
+struct DeclExpr <: JLExpr
+	sym::WGPUVariable
+	dataType::Union{DataType, TypeExpr}
+end
+
+symbol(decl::DeclExpr) = symbol(decl.sym)
+
+
