@@ -37,7 +37,8 @@ function computeBlock(scope, islaunch, wgSize, wgCount, fname, fargs)
 	fn = inferExpr(childScope, fname)
 	fa = map(x -> inferExpr(childScope, x), fargs)
 	fb = map(x -> inferExpr(childScope, x), fbody)
-	return ComputeBlock(fn, fa, WGPUVariable[], fb, childScope)
+	ta = map(x -> inferExpr(childScope, x), Targs)
+	return ComputeBlock(fn, fa, ta, fb, childScope)
 end
 
 
