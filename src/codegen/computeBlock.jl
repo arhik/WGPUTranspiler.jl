@@ -29,9 +29,8 @@ struct ComputeBlock <: JLBlock
 	scope::Union{Nothing, Scope}
 end
 
-function computeBlock(scope, islaunch, wgSize, wgCount, fname, fargs)
-	fexpr = @code_string(fname(fargs...)) |> Meta.parse |> MacroTools.striplines
-	@info fexpr
+function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
+	fexpr = @code_string(funcName(funcArgs...)) |> Meta.parse |> MacroTools.striplines
 	@capture(fexpr, function fname_(fargs__) where Targs__ fbody__ end)
 	childScope = Scope([Targs...], [:ceil], 0, scope, quote end)
 	fn = inferExpr(childScope, fname)
