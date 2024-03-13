@@ -1,7 +1,30 @@
 export transpile 
 
 transpile(scope::Scope, s::Scalar) = s.element
-transpile(scope::Scope, var::WGPUVariable) = var.dataType == Any ? :($(var.sym)) : :($(var.sym)::$(var.dataType))
+transpile(scope::Scope, var::WGPUVariable) = transpile(scope, var, Val(var.varType))
+
+transpile(scope::Scope, var::WGPUVariable, ::Val{Generic}) = var.dataType == Any ? :($(var.sym)) : :($(var.sym)::$(var.dataType))
+s
+transpile(scope::Scope, var::WGPUVariable, ::Val{Constant}) = :(@const var.sym)
+
+transpile(scope::Scope, var::WGPUVariable, ::Val{StorageReadWrite}) = begin
+	@infiltrate
+	varcopy = deepcopy(var)
+	varcopy.varType = Generic
+	varAttr = var.varAttr
+	declexpr = transpile(scope, varcopy)
+	Expr(:macrocall, Symbol("@var"), :StorageReadWrite, varAttr.group, varAttr.binding, declexpr)
+end
+
+transpile(scope::Scope, var::WGPUVariable, ::Val{Dims}) = begin
+	:(@const $(var.sym) Vec3{UInt32}(0, 0, 0))
+end
+
+# TODO Intrinsic should be BuiltinType 
+transpile(scope::Scope, var::WGPUVariable, ::Val{Intrinsic}) = begin
+	:(@builtin($(var.sym), $(var.sym)::Vec3{UInt32}))
+end
+
 transpile(scope::Scope, lhs::LHS) = transpile(scope, lhs.variable)
 transpile(scope::Scope, var::WGPUVariable, ::Val{true}) = :(@var $(transpile(scope, var)))
 transpile(scope::Scope, var::WGPUVariable, ::Val{false}) = :($(var.sym))
@@ -46,7 +69,11 @@ function transpile(scope::Scope, acsExpr::AccessExpr)
 	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
 
-transpile(scope::Scope, declExpr::DeclExpr) = Expr(:(::), map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...)
+transpile(scope::Scope, declExpr::DeclExpr) = begin
+	@infiltrate
+	Expr(:(::), map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...)
+end
+
 transpile(scope::Scope, ::Type{T}) where T = :($T)
 
 transpile(scope::Scope, typeExpr::TypeExpr) = Expr(
@@ -76,9 +103,17 @@ function transpile(scope::Scope, funcblk::FuncBlock)
 end
 
 function transpile(scope::Scope, computeBlk::ComputeBlock)
+	@infiltrate
 	fn = transpile(scope::Scope, computeBlk.fname)
 	fa = map(x -> transpile(scope, x), computeBlk.fargs)
 	fb = map(x -> transpile(scope, x), computeBlk.fbody)
 	ta = map(x -> transpile(scope, x), computeBlk.Targs)
-	return Expr(:function, Expr(:where, Expr(:call, fn, fa...), ta...), quote $(fb...) end) |> MacroTools.striplines
+	workgroupSize = computeBlk.wgSize
+	code = quote 
+		@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
+	end
+	push!(code.args, fa...)
+	bargs = computeBlk.builtinArgs
+	push!(code.args, Expr(:function, Expr(:where, Expr(:call, fn, bargs...), ta...), quote $(fb...) end))
+	return code |> MacroTools.striplines
 end
