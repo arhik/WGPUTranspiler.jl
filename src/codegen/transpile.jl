@@ -2,9 +2,9 @@ export transpile
 
 transpile(scope::Scope, s::Scalar) = s.element
 transpile(scope::Scope, var::WGPUVariable) = var.dataType == Any ? :($(var.sym)) : :($(var.sym)::$(var.dataType))
-transpile(scope::Scope, lhs::LHS) = transpile(scope, lhs.variable, Val(lhs.mutable))
-transpile(scope::Scope, var::WGPUVariable, ::Val{false}) = :(@var $(transpile(scope, var)))
-transpile(scope::Scope, var::WGPUVariable, ::Val{true}) = :($(var.sym))
+transpile(scope::Scope, lhs::LHS) = transpile(scope, lhs.variable)
+transpile(scope::Scope, var::WGPUVariable, ::Val{true}) = :(@var $(transpile(scope, var)))
+transpile(scope::Scope, var::WGPUVariable, ::Val{false}) = :($(var.sym))
 transpile(scope::Scope, rhs::RHS) = transpile(scope, rhs.rhsExpr)
 transpile(scope::Scope, binOp::BinaryOp) = transpile(scope, binOp, Val(binOp.op))
 
@@ -45,6 +45,14 @@ transpile(scope::Scope, idxExpr::IndexExpr, ::Val{false}) = error("This variable
 function transpile(scope::Scope, acsExpr::AccessExpr)
 	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
+
+transpile(scope::Scope, declExpr::DeclExpr) = Expr(:(::), map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...)
+transpile(scope::Scope, ::Type{T}) where T = :($T)
+
+transpile(scope::Scope, typeExpr::TypeExpr) = Expr(
+	:curly, transpile(scope, typeExpr.sym), 
+	map(x -> transpile(scope, x), typeExpr.types)...
+)
 
 function transpile(scope::Scope, rblock::RangeBlock)
 	(start, step, stop) = map(x -> transpile(scope, x), (rblock.start, rblock.step, rblock.stop))

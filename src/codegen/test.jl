@@ -89,7 +89,7 @@ end
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Float32, 4, 4));
 
-scope = Scope([], [], 0, nothing, quote end)
+scope = Scope([:out, :x], [], 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
 	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))

@@ -40,7 +40,7 @@ end
 symbol(assign::AssignmentExpr) = symbol(assign.lhs)
 
 function assignExpr(scope, lhs, rhs)
-	lhsVar = LHS(inferVariable(scope, lhs), false)
+	lhsVar = LHS(inferExpr(scope, lhs), false)
 	inferScope!(scope, lhsVar)
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	statement = AssignmentExpr(lhsVar, rhsExpr, scope)
