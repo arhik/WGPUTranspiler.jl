@@ -58,6 +58,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 	
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
 		if @capture(symbolArg, iovar_::ioType_{T_, N_})
+			push!(scope.globals, iovar)
 			ins[T] = eltype(inArg)
 			ins[N] = N
 		end
@@ -78,6 +79,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $dimsVar = Vec3{UInt32}($(UInt32.(dims)...))
 					end
 				)
+				push!(scope.globals, dimsVar)
 				ins[dimsVar] = dimsVar
 			end
 		elseif @capture(symbolarg, iovar_::ioType_)
@@ -88,10 +90,11 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $iovar::$(eltype(inarg)) = $(Meta.parse((wgslType(inarg))))
 					end
 				)
+				push!(scope.globals, iovar)
 				ins[iovar] = iovar
 			else
 				push!(
-					scope.locals,
+					scope.globals,
 					iovar
 				)
 			end
@@ -112,7 +115,6 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 			ins[iovar] = iovar
 		end
 	end
-
 
 	childScope = Scope([Targs...], [:ceil], 0, scope, quote end)
 	fn = inferExpr(childScope, fname)
