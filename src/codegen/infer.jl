@@ -62,8 +62,10 @@ end
 
 function declExpr(scope, a::Symbol, b::Symbol)
 	aExpr = inferExpr(scope, a)
+	push!(scope.locals, a)
 	inferScope!(scope, aExpr)
-	bExpr = eval(b)
+	bExpr = Base.eval(b) # Should indirectly infer if this type in the scope
+	#inferScope!(scope, bExpr)
 	return DeclExpr(aExpr, bExpr)
 end
 
