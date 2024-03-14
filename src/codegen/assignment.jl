@@ -19,11 +19,7 @@ symbol(::Scalar) = nothing
 
 function inferScope!(scope, lhs::LHS)
 	sym = symbol(lhs)
-	if findVar(scope, sym)
-		lhs.mutable = true
-	else
-		push!(scope.locals, sym)
-	end
+	@assert findVar(scope, sym) "Variable $sym is not found in local and global scope"
 end
 
 function inferScope!(scope, var::WGPUVariable)
