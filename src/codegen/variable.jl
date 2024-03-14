@@ -28,7 +28,14 @@ mutable struct WGPUVariable <: AbstractWGPUVariable
 	dataType::Union{DataType, Type}
 	varType::WGPUVariableType
 	varAttr::Union{Nothing, WGPUVariableAttribute}
+	mutable::Bool
+	isnew::Bool
 end
 
 symbol(var::WGPUVariable) = var.sym
+isMutable(var::WGPUVariable) = var.mutable
 
+isNew(var::WGPUVariable) = var.isnew
+
+setMutable!(var::WGPUVariable, b::Bool) = (var.mutable = b) 
+setNew!(var::WGPUVariable, b::Bool) = (var.isnew = b)

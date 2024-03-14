@@ -10,7 +10,7 @@ function inferExpr(scope::Scope, expr::Expr)
 	elseif @capture(expr, a_ - b_)
 		return binaryOp(scope, :-, a, b)
 	elseif @capture(expr, a_ * b_)
-		return binaryOp(scope, :-, a, b)
+		return binaryOp(scope, :*, a, b)
 	elseif @capture(expr, a_ / b_)
 		return binaryOp(scope, :/, a, b)
 	elseif @capture(expr, a_ < b_)
@@ -62,10 +62,7 @@ end
 
 function declExpr(scope, a::Symbol, b::Symbol)
 	aExpr = inferExpr(scope, a)
-	push!(scope.locals, a)
-	inferScope!(scope, aExpr)
-	bExpr = Base.eval(b) # Should indirectly infer if this type in the scope
-	#inferScope!(scope, bExpr)
+	bExpr = Base.eval(b)
 	return DeclExpr(aExpr, bExpr)
 end
 
@@ -84,24 +81,18 @@ end
 
 function inferVariable(scope, expr::Expr)
 	if @capture(expr, a_::b_{t__})
-		push!(scope.locals, a)
-		return WGPUVariable(a, eval(b), Generic, nothing, ) # TODO t is ignored
+		scope.locals[a] = Base.eval(b)
+		for tvar in t
+			scope.typeVars[tvar] = Base.eval(tvar)
+		end
+		# TODO ignored t types for now
+		return WGPUVariable(a, eval(b), Generic, nothing, false, false) # TODO t is ignored
 	elseif @capture(expr, a_::b_)
-		push!(scope.locals, a)
-		return WGPUVariable(a, eval(b), Generic, nothing, )
+		scope.locals[a] = eval(b)
+		return WGPUVariable(a, eval(b), Generic, nothing, false, false)
 	else
 		error("This expression $expr type is not captured yet")
 	end
-end
-
-function inferVariable(scope, array::WgpuArray)
-	# push!(scope.globals, )
-	@error "This should not have happened"
-end
-
-function inferVariable(scope, sym::Symbol)
-	#TODO DataType needs to inferred from scope
-	return WGPUVariable(sym, Any, Generic, nothing, )
 end
 
 function inferRange(scope, expr::Expr)
@@ -112,25 +103,25 @@ function inferRange(scope, expr::Expr)
 		inferScope!(scope, stop)
 		step = inferExpr(scope, 1)
 		inferScope!(scope, step)
-		return RangeExpr(start, stop, step)
+		return RangeExpr(start, step, stop)
 	elseif @capture(expr, a_:b_:c_)
 		start = inferExpr(scope, a)
 		inferScope!(scope, start)
-		stop = inferExpr(scope, b)
-		inferScope!(scope, stop)
-		step = inferExpr(scope, c)
+		step = inferExpr(scope, b)
 		inferScope!(scope, step)
-		return RangeExpr(start, stop, step)
+		stop = inferExpr(scope, c)
+		inferScope!(scope, stop)
+		return RangeExpr(start, step, stop)
 	end
 end
 
 function inferExpr(scope::Scope, a::Symbol)
 	if a == :workgroupDims
-		return WGPUVariable(a, WorkGroupDims, Dims, nothing, )
+		return WGPUVariable(a, WorkGroupDims, Dims, nothing, false, false)
 	elseif a == :workgroupId
-		return WGPUVariable(a, WorkGroupId, Intrinsic, nothing,)
+		return WGPUVariable(a, WorkGroupId, Intrinsic, nothing, false, false)
 	else
-		return WGPUVariable(a, Any, Generic, nothing, )
+		return WGPUVariable(a, Any, Generic, nothing, false, false)
 	end
 end
 

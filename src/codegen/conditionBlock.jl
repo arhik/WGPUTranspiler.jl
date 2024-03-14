@@ -9,7 +9,7 @@ struct IfBlock <: JLBlock
 end
 
 function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
-	childScope = Scope([], [], scope.depth + 1, scope, :())
+	childScope = Scope(Dict(), Dict(), Dict(), scope.depth + 1, scope, :())
 	condExpr = inferExpr(scope, cond)
 	inferScope!(scope, condExpr)
 	exprArray = JLExpr[]

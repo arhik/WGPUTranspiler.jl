@@ -19,7 +19,7 @@ end
 
 function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
 	# TODO deal with StepRangeLen also may be ? I don't see its use though.
-	childScope = Scope([], [], scope.depth + 1, scope, :())
+	childScope = Scope(Dict(), Dict(), Dict(), scope.depth + 1, scope, :())
 	rangeExpr = inferRange(childScope, range)
 	startExpr = rangeExpr.start
 	stopExpr =  rangeExpr.stop

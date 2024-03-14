@@ -1,31 +1,67 @@
 
-export Scope
+export Scope, getDataTypeFrom, getDataType, getGlobalScope
 
 struct Scope
-	locals::Vector{Symbol}
-	globals::Vector{Symbol}
+	locals::Dict{Symbol, Union{DataType, Type}}
+	globals::Dict{Symbol, Union{DataType, Type}}
+	typeVars::Dict{Symbol, Union{DataType, Type}}
 	depth::Int
 	parent::Union{Nothing, Scope}
 	code::Expr
 end
 
-Scope() = Scope([], [], 0, nothing, quote end)
+# TODO scope should include wgslFunctions and other builtins by default
 
-# TODO hardcoded for now
+Scope() = Scope(Dict(), Dict(), Dict(), 0, nothing, quote end)
 
 function findVar(scope::Union{Nothing, Scope}, sym::Symbol)
 	if scope == nothing
-		return false
+		return (false, nothing, scope)
 	end
-	if (sym in scope.locals) || (sym in scope.globals)
-		return true
-	elseif findVar(scope.parent, sym)
-		return true
-	else
-		return false
+	localsyms=keys(scope.locals)
+	globalsyms=keys(scope.globals)
+	typesyms = keys(scope.typeVars)
+	if (sym in localsyms)
+		return (true, :localScope, scope)
+	elseif (sym in globalsyms)
+		return (true, :globalScope, scope)
+	elseif (sym in typesyms)
+		return (true, :typeScope, scope)
 	end
+	return findVar(scope.parent, sym)
 end
 
 function inferScope!(scope, scalar::Scalar)
 	# Do nothing
+end
+
+function getGlobalScope(scope::Union{Nothing, Scope})
+	if scope == nothing
+		@error "No global state can be retrieved from `nothing` scope"
+	elseif scope.depth == 1
+		return scope
+	else
+		getGlobalScope(scope.parent)
+	end
+end
+
+function getDataTypeFrom(scope::Union{Nothing, Scope}, location, var::Symbol)
+	if scope == nothing
+		@error "Nothing scope cannot be searched for $var symbol"
+	elseif location == :localScope
+		return scope.locals[var]
+	elseif location == :globalScope
+		return scope.globals[var]
+	elseif location == :typeScope
+		return scope.typeVars[var]
+	end
+end
+
+function getDataType(scope::Union{Nothing, Scope}, var::Symbol)
+	(found, location, rootScope) = findVar(scope, var)
+	if found == true
+		getDataTypeFrom(rootScope, location, var)
+	else
+		return Any
+	end
 end
