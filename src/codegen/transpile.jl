@@ -84,7 +84,6 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	workgroupSize = computeBlk.wgSize
 	code = quote end
 	push!(code.args, map(x -> unblock(x), scope.code.args)...)
-	push!(code.args, fa...)
 	bargs = computeBlk.builtinArgs
 	push!(code.args, Expr(:function, Expr(:where, Expr(:call, fn, bargs...), ta...), quote $(fb...) end))
 	return code |> MacroTools.striplines
