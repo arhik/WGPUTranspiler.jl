@@ -82,9 +82,8 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	fb = map(x -> transpile(scope, x), computeBlk.fbody)
 	ta = map(x -> transpile(scope, x), computeBlk.Targs)
 	workgroupSize = computeBlk.wgSize
-	code = quote 
-		@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
-	end
+	code = quote end
+	push!(code.args, map(x -> unblock(x), scope.code.args)...)
 	push!(code.args, fa...)
 	bargs = computeBlk.builtinArgs
 	push!(code.args, Expr(:function, Expr(:where, Expr(:call, fn, bargs...), ta...), quote $(fb...) end))
