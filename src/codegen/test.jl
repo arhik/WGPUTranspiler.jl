@@ -8,6 +8,10 @@ scope = Scope([:b, :c], [], 0, nothing, quote end)
 aExpr = inferExpr(scope, :(a::Int32 = b + c))
 transpile(scope, aExpr)
 
+scope = Scope([:b, :c], [], 0, nothing, quote end)
+aExpr = inferExpr(scope, :(a = b + c))
+transpile(scope, aExpr)
+
 scope = Scope([:b, :c], [:+, :g], 0, nothing, quote end)
 cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(a + b + b + c) + g(2, 3, c)))
 transpile(scope, cExpr)
@@ -78,11 +82,11 @@ transpile(scope, inferredExpr)
 
 
 function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
-	xdim = workgroupDims.x
-	ydim = workgroupDims.y
-	gIdx = workgroupId.x*xdim + localId.x
-	gIdy = workgroupId.y*ydim + localId.y
-	gId = xDims.x*gIdy + gIdx
+	xdim::UInt32 = workgroupDims.x
+	ydim::UInt32 = workgroupDims.y
+	gIdx::UInt32 = workgroupId.x*xdim + localId.x
+	gIdy::UInt32 = workgroupId.y*ydim + localId.y
+	gId::UInt32 = xDims.x*gIdy + gIdx
 	out[gId] = S(ceil(x[gId]))
 end	
 
