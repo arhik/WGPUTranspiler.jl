@@ -48,11 +48,4 @@ function assignExpr(scope, lhs, rhs)
 	return statement
 end
 
-function toWGSLCode(jlexpr::AssignmentExpr)
-	return quote
-		#if $(jlexpr.lhs.variable.mutable)
-		#	@var $(jlexpr.lhs.variable.sym)
-	end
-end
-
 

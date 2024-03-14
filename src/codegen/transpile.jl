@@ -1,10 +1,8 @@
 export transpile 
 
 transpile(scope::Scope, s::Scalar) = s.element
-transpile(scope::Scope, var::WGPUVariable) = var.dataType == Any ? :($(var.sym)) : :($(var.sym)::$(var.dataType))
+transpile(scope::Scope, var::WGPUVariable) = :($(var.sym))
 transpile(scope::Scope, lhs::LHS) = transpile(scope, lhs.variable)
-transpile(scope::Scope, var::WGPUVariable, ::Val{true}) = :(@var $(transpile(scope, var)))
-transpile(scope::Scope, var::WGPUVariable, ::Val{false}) = :($(var.sym))
 transpile(scope::Scope, rhs::RHS) = transpile(scope, rhs.rhsExpr)
 transpile(scope::Scope, binOp::BinaryOp) = transpile(scope, binOp, Val(binOp.op))
 
@@ -46,7 +44,10 @@ function transpile(scope::Scope, acsExpr::AccessExpr)
 	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
 
-transpile(scope::Scope, declExpr::DeclExpr) = Expr(:(::), map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...)
+transpile(scope::Scope, declExpr::DeclExpr) = begin
+		:(@var $(Expr(:(::), map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...)))
+end
+
 transpile(scope::Scope, ::Type{T}) where T = :($T)
 
 transpile(scope::Scope, typeExpr::TypeExpr) = Expr(
@@ -80,5 +81,12 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	fa = map(x -> transpile(scope, x), computeBlk.fargs)
 	fb = map(x -> transpile(scope, x), computeBlk.fbody)
 	ta = map(x -> transpile(scope, x), computeBlk.Targs)
-	return Expr(:function, Expr(:where, Expr(:call, fn, fa...), ta...), quote $(fb...) end) |> MacroTools.striplines
+	workgroupSize = computeBlk.wgSize
+	code = quote 
+		@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
+	end
+	push!(code.args, fa...)
+	bargs = computeBlk.builtinArgs
+	push!(code.args, Expr(:function, Expr(:where, Expr(:call, fn, bargs...), ta...), quote $(fb...) end))
+	return code |> MacroTools.striplines
 end
