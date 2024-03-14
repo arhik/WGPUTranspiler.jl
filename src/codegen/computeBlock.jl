@@ -98,6 +98,22 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 		end
 	end
 
+	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
+		if @capture(symbolarg, iovar_::ioType_{T_, N_})
+			# TODO instead of assert we should branch for each case of argument
+			@assert ioType == :WgpuArray #"Expecting WgpuArray Type, received $ioType instead"
+			arrayLen = reduce(*, size(inarg))
+			push!(
+				scope.code.args,
+				quote
+					@var StorageReadWrite 0 $(idx-1) $(iovar)::Array{$(eltype(inarg)), $(arrayLen)}
+				end
+			)
+			ins[iovar] = iovar
+		end
+	end
+
+
 	childScope = Scope([Targs...], [:ceil], 0, scope, quote end)
 	fn = inferExpr(childScope, fname)
 	fa = map(x -> inferExpr(childScope, x), fargs)
