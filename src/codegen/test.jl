@@ -13,6 +13,10 @@ transpile(scope, aExpr)
 scope = Scope(Dict(:b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
 aExpr = inferExpr(scope, :(a = b + c))
 transpile(scope, aExpr)
+
+scope = Scope(Dict(:b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
+aExpr = inferExpr(scope, :(a = b + c))
+transpile(scope, aExpr)
 # TODO rerunning transpile(scope, aExpr) will have declexpr for a lik a::Int32 which is a bug
 
 # This should fail because of type mismatches
@@ -196,6 +200,32 @@ end
 
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Float32, 4, 4));
+
+scope = Scope(Dict(:out=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
+
+inferredExpr = inferExpr(
+	scope, 
+	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
+)
+transpile(scope, inferredExpr)
+
+# ---------
+
+function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
+	xdim = workgroupDims.x
+	ydim = workgroupDims.y
+	gIdx = workgroupId.x*xdim + localId.x
+	gIdy = workgroupId.y*ydim + localId.y
+	gId = xDims.x*gIdy + gIdx
+	for i in 1:19
+		for j in 1:20
+			a[i][j] = 1.0
+		end
+	end
+end	
+
+a = WgpuArray(rand(Float32, 4, 4));
+b = WgpuArray(rand(Int32, 4, 4));
 
 scope = Scope(Dict(:out=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
