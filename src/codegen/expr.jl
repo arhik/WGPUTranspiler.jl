@@ -81,7 +81,6 @@ function inferScope!(scope::Scope, jlexpr::IndexExpr)
 end
 
 typeInfer(scope::Scope, idxExpr::IndexExpr) = begin
-	@infiltrate
 	ty = typeInfer(scope, idxExpr.idx)
 	@assert ty == UInt32 "types do not match $ty UInt32"
 	# TODO we might have to deal with multi-indexing
