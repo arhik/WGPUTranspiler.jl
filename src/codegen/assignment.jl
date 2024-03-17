@@ -79,11 +79,13 @@ function assignExpr(scope, lhs, rhs)
 		(lhsFound, location, rootScope) = findVar(scope, symbol(lExpr))
 		@assert location != :typeScope "variable is found in typeScope and cannot be used as local variable"
 		if (lhsFound == false)
-			scope.locals[symbol(lExpr)] = rhsType
 			lhsExpr[] = LHS(lExpr)
+			lExpr.dataType = rhsType
+			scope.locals[symbol(lExpr)] = lhsExpr[].variable
 			setNew!(lhsExpr[], true)
 			setMutable!(lhsExpr[], false)
 		else (lhsFound == true)
+			@infiltrate
 			lhsExpr[] = LHS(lExpr)
 			setNew!(lhsExpr[], false)
 			setMutable!(lhsExpr[], true)

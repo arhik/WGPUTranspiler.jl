@@ -34,6 +34,8 @@ struct ComputeBlock <: JLBlock
 	builtinArgs::Array{Expr}
 end
 
+makeVarPair(p::Pair{Symbol, DataType}) = WGPUVariable(p.first, p.second, Generic, nothing, false, false)
+
 function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)	
 	fexpr = @code_string(funcName(funcArgs...)) |> Meta.parse |> MacroTools.striplines
 	@capture(fexpr, function fname_(fargs__) where Targs__ fbody__ end)
@@ -51,15 +53,15 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
     	end
     )
     # TODO include these only based on `symbols(funcblock)``
-    scope.globals[:workgroupDims] = WorkGroupDims
-    scope.globals[:workgroupId] = WorkGroupId
-    scope.globals[:localId] = LocalInvocationId
-    scope.globals[:globalId] = GlobalInvocationId
+    scope.globals[:workgroupDims] = makeVarPair(:workgroupDims => WorkGroupDims)
+    scope.globals[:workgroupId] = makeVarPair(:workgroupId=>WorkGroupId)
+    scope.globals[:localId] = makeVarPair(:localId=>LocalInvocationId)
+    scope.globals[:globalId] = makeVarPair(:globalId=>GlobalInvocationId)
+	scope.globals[:ceil] = makeVarPair(:ceil=>Function)
 
-	scope.globals[:ceil] = Function
-	#for wgslf in wgslfunctions
-	#    scope.globals[wgslf] = Function
-    #end
+	for wgslf in wgslfunctions
+	    scope.globals[wgslf] = makeVarPair(wgslf=>Function)
+    end
     
 	builtinArgs = [
 		:(@builtin(global_invocation_id, global_id::Vec3{UInt32})),
@@ -72,8 +74,8 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 		if @capture(symbolArg, iovar_::ioType_{T_, N_})
 			#scope.globals[T] = eltype(inArg)
 			#scope.globals[N] = Val{ndims(inArg)}
-			scope.typeVars[T] = eltype(inArg)
-			scope.typeVars[N] = Val{ndims(inArg)}
+			scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
+			scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
 		end
 	end
 	
@@ -92,7 +94,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $dimsVar = Vec3{UInt32}($(UInt32.(dims)...))
 					end
 				)
-				scope.globals[dimsVar] = WArrayDims
+				scope.globals[dimsVar] = makeVarPair(:dimsVar=>WArrayDims)
 			end
 		elseif @capture(symbolarg, iovar_::ioType_)
 			if eltype(inarg) in [Float32, Int32, UInt32, Bool] # TODO we need to update this
@@ -102,9 +104,9 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $iovar::$(eltype(inarg)) = $(Meta.parse((wgslType(inarg))))
 					end
 				)
-				scope.globals[iovar] = Base.eval(ioType)
+				scope.globals[iovar] = makeVarPair(iovar=>Base.eval(ioType))
 			else
-				scope.globals[iovar] = Val(iovar)
+				scope.globals[iovar] = makeVarPair(iovar=>Val(iovar))
 			end
 		end
 	end

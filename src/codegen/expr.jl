@@ -81,7 +81,12 @@ function inferScope!(scope::Scope, jlexpr::IndexExpr)
 end
 
 typeInfer(scope::Scope, idxExpr::IndexExpr) = begin
-	ty = typeInfer(scope, idxExpr.idx)
+	idx = idxExpr.idx
+	# TODO handle scalar cases for indexing ...
+	if typeof(idx) == Scalar
+		idx = Scalar(idx.element |> UInt32)
+	end
+	ty = typeInfer(scope, idx)
 	@assert ty == UInt32 "types do not match $ty UInt32"
 	# TODO we might have to deal with multi-indexing
 	return eltype(typeInfer(scope, idxExpr.sym))
@@ -146,9 +151,11 @@ symbol(decl::DeclExpr) = symbol(decl.sym)
 
 typeInfer(scope::Scope, declexpr::DeclExpr) = begin
 	sym = symbol(declexpr)
-	(found, rootScope) = findVar(scope, sym)
+	(found, location, rootScope) = findVar(scope, sym)
 	if found == false
-		scope.locals[sym] = declexpr.dataType
+		scope.locals[sym] = declexpr.sym
+		var = scope.locals[sym]
+		var.dataType = declexpr.dataType
 	else found == true && scope.depth == rootScope.depth
 		error("duplicate declaration of a variable $sym is not allowed in wgsl though julia allows it")
 	end

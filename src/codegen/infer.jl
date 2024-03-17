@@ -81,15 +81,21 @@ end
 
 function inferVariable(scope, expr::Expr)
 	if @capture(expr, a_::b_{t__})
-		scope.locals[a] = Base.eval(b)
+		var = WGPUVariable(a, eval(b{t...}), Generic, nothing, false, false)
+		ref = Ref{WGPUVariable}(var)
+		scope.globals[Symbol(:origin_, a)] = var
 		for tvar in t
-			scope.typeVars[tvar] = Base.eval(tvar)
+			var = WGPUVariable(tvar, Any, Generic, nothing, false, false)
+			ref = Ref{WGPUVariable}(var)
+			scope.typeVars[tvar] = var
 		end
 		# TODO ignored t types for now
-		return WGPUVariable(a, eval(b), Generic, nothing, false, false) # TODO t is ignored
+		return ref[] # TODO t is ignored
 	elseif @capture(expr, a_::b_)
-		scope.locals[a] = eval(b)
-		return WGPUVariable(a, eval(b), Generic, nothing, false, false)
+		var = WGPUVariable(a, eval(b), Generic, nothing, false, false)
+		ref = Ref{WGPUVariable}(var)
+		scope.globals[Symbol(:origin_, a)] = var
+		return ref[]
 	else
 		error("This expression $expr type is not captured yet")
 	end
@@ -116,13 +122,17 @@ function inferRange(scope, expr::Expr)
 end
 
 function inferExpr(scope::Scope, a::Symbol)
+	var = WGPUVariable(a, Any, Generic, nothing, false, false)
 	if a == :workgroupDims
-		return WGPUVariable(a, WorkGroupDims, Dims, nothing, false, false)
+		var.dataType = WorkGroupDims
+		var.varType = Dims
 	elseif a == :workgroupId
-		return WGPUVariable(a, WorkGroupId, Intrinsic, nothing, false, false)
-	else
-		return WGPUVariable(a, Any, Generic, nothing, false, false)
+		var.dataType = WorkGroupId
+		var.varType = Intrinsic
 	end
+	scope.globals[Symbol(:origin_, a)] = var
+	ref = Ref{WGPUVariable}(var)
+	return ref[]
 end
 
 function inferExpr(scope::Scope, a::Number)
