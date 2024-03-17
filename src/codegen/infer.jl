@@ -78,27 +78,32 @@ function declExpr(scope, a::Symbol, b::Expr)
 	return DeclExpr(aExpr, bExpr)
 end
 
-
 function inferVariable(scope, expr::Expr)
 	if @capture(expr, a_::b_{t__})
 		var = WGPUVariable(a, eval(b{t...}), Generic, nothing, false, false)
-		ref = Ref{WGPUVariable}(var)
 		scope.globals[Symbol(:origin_, a)] = var
-		for tvar in t
-			var = WGPUVariable(tvar, Any, Generic, nothing, false, false)
-			ref = Ref{WGPUVariable}(var)
-			scope.typeVars[tvar] = var
-		end
-		# TODO ignored t types for now
-		return ref[] # TODO t is ignored
+		scope.locals[a] = Ref{WGPUVariable}(var)
 	elseif @capture(expr, a_::b_)
 		var = WGPUVariable(a, eval(b), Generic, nothing, false, false)
-		ref = Ref{WGPUVariable}(var)
 		scope.globals[Symbol(:origin_, a)] = var
-		return ref[]
+		scope.locals[a] = Ref{WGPUVariable}(var)
 	else
 		error("This expression $expr type is not captured yet")
 	end
+end
+
+function inferExpr(scope::Scope, a::Symbol)
+	var = WGPUVariable(a, Any, Generic, nothing, false, false)
+	if a == :workgroupDims
+		var.dataType = WorkGroupDims
+		var.varType = Dims
+	elseif a == :workgroupId
+		var.dataType = WorkGroupId
+		var.varType = Intrinsic
+	end
+	scope.globals[Symbol(:origin_, a)] = var
+	# scope.locals[a] = Ref{WGPUVariable}(var)
+	var
 end
 
 function inferRange(scope, expr::Expr)
@@ -119,20 +124,6 @@ function inferRange(scope, expr::Expr)
 		inferScope!(scope, stop)
 		return RangeExpr(start, step, stop)
 	end
-end
-
-function inferExpr(scope::Scope, a::Symbol)
-	var = WGPUVariable(a, Any, Generic, nothing, false, false)
-	if a == :workgroupDims
-		var.dataType = WorkGroupDims
-		var.varType = Dims
-	elseif a == :workgroupId
-		var.dataType = WorkGroupId
-		var.varType = Intrinsic
-	end
-	scope.globals[Symbol(:origin_, a)] = var
-	ref = Ref{WGPUVariable}(var)
-	return ref[]
 end
 
 function inferExpr(scope::Scope, a::Number)

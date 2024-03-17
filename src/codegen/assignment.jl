@@ -59,7 +59,32 @@ end
 
 symbol(assign::AssignmentExpr) = symbol(assign.lhs)
 
+function assignExpr(scope, lhs::Symbol, rhs::Symbol)
+	@infiltrate
+	(found, location, rootScope) = findVar(scope, lhs)
+	inferScope!(scope, rhs)
+	if found
+		lExpr = getVarFrom(rootScope, lhs)
+	end
+end
+
+function assignExpr(scope, lhs::Symbol, rhs::Expr)
+	@infiltrate
+	rhsExpr = RHS(inferExpr(scope, rhs))
+	(found, location, rootScope) = findVar(scope, lhs)
+	if found == false
+		lExpr = inferExpr(scope, lhs)
+	end
+end
+
+function assignExpr(scope, lhs::Expr, rhs::Expr)
+	@infiltrate
+end
+
 function assignExpr(scope, lhs, rhs)
+	if lhs == :gId
+		@infiltrate
+	end
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	rhsType = typeInfer(scope, rhsExpr)
 	lExpr = inferExpr(scope, lhs)
@@ -79,13 +104,18 @@ function assignExpr(scope, lhs, rhs)
 		(lhsFound, location, rootScope) = findVar(scope, symbol(lExpr))
 		@assert location != :typeScope "variable is found in typeScope and cannot be used as local variable"
 		if (lhsFound == false)
+			if lhs == :gId
+				@infiltrate
+			end
 			lhsExpr[] = LHS(lExpr)
 			lExpr.dataType = rhsType
 			scope.locals[symbol(lExpr)] = lhsExpr[].variable
 			setNew!(lhsExpr[], true)
 			setMutable!(lhsExpr[], false)
 		else (lhsFound == true)
-			@infiltrate
+			if lhs== :gId
+				@infiltrate
+			end
 			lhsExpr[] = LHS(lExpr)
 			setNew!(lhsExpr[], false)
 			setMutable!(lhsExpr[], true)

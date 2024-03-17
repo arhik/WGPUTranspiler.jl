@@ -90,8 +90,6 @@ transpile(scope, aExpr)
 scope = Scope(
 	Dict(
 		makeVarPair(:workgroupDims=>WorkGroupDims),
-		makeVarPair(:b=>Int32),
-		makeVarPair(:c=>Int32),
 	),
 	Dict(),	Dict(), 0, nothing, quote end
 )
@@ -127,6 +125,7 @@ scope = Scope(
 cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2, 3, c)))
 transpile(scope, cExpr)
 
+# ------
 # This should fail too 
 scope = Scope(
 	Dict(
@@ -142,6 +141,7 @@ scope = Scope(
 cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2.0, 3, c)))
 transpile(scope, cExpr)
 
+# ------
 scope = Scope(
 	Dict(
 		makeVarPair(:b=>UInt32), 
@@ -204,17 +204,6 @@ inferredExpr = inferExpr(scope, :(a.c[1] = g.b[1])) # scalar indexes will fail
 transpile(scope, inferredExpr)
 # -----
 
-
-scope = Scope(
-	Dict(
-		makeVarPair(:a=>WgpuArray{Float32, 16}), 
-		makeVarPair(:b=>WgpuArray{Float32, 16}),
-		makeVarPair(:c=>WgpuArray{Float32, 16}),
-		makeVarPair(:d=>WgpuArray{Float32, 16}),
-		makeVarPair(:println=>Function),
-		makeVarPair(:(+)=>Function)
-	), Dict(), Dict(), 0, nothing, quote end
-)
 scope = Scope(
 	Dict(
 		makeVarPair(:a=>WgpuArray{Float32, 16}), 
@@ -408,7 +397,11 @@ end
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Float32, 4, 4));
 
-scope = Scope(Dict(:a=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		makeVarPair(:x=>WgpuArray{Float32, 16})
+	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
 	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))

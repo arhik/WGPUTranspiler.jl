@@ -155,7 +155,7 @@ typeInfer(scope::Scope, declexpr::DeclExpr) = begin
 	if found == false
 		scope.locals[sym] = declexpr.sym
 		var = scope.locals[sym]
-		var.dataType = declexpr.dataType
+		setproperty!(var[], :dataType, declexpr.dataType)
 	else found == true && scope.depth == rootScope.depth
 		error("duplicate declaration of a variable $sym is not allowed in wgsl though julia allows it")
 	end
