@@ -1,31 +1,72 @@
 export transpile 
 
 transpile(scope::Scope, s::Scalar) = s.element
-transpile(scope::Scope, var::WGPUVariable) = :($(var.sym))
-transpile(scope::Scope, lhs::LHS) = transpile(scope, lhs.variable)
-transpile(scope::Scope, rhs::RHS) = transpile(scope, rhs.rhsExpr)
+transpile(scope::Scope, var::WGPUVariable) = begin
+	(found, location, rootScope) = findVar(scope, var.sym)
+	if location == :typeScope
+		return :($(getDataTypeFrom(rootScope, location, var.sym)))
+	else
+		:($(var.sym))
+	end
+end
+transpile(scope::Scope, var::Ref{WGPUVariable}) = transpile(scope, var[])
+
+transpile(scope::Scope, lhs::LHS) = transpile(scope, lhs.expr)
+transpile(scope::Scope, rhs::RHS) = transpile(scope, rhs.expr)
 transpile(scope::Scope, binOp::BinaryOp) = transpile(scope, binOp, Val(binOp.op))
 
 # for each op in [:+, :-, :*, :\, :<, :>, :<=, :>=, :==, :+=, :-=]
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:+}) = :($(transpile(scope, binOp.left)) + $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:-}) = :($(transpile(scope, binOp.left)) - $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:*}) = :($(transpile(scope, binOp.left)) * $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:/}) = :($(transpile(scope, binOp.left)) / $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:<}) = :($(transpile(scope, binOp.left)) < $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:>}) = :($(transpile(scope, binOp.left)) > $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(<=)}) = :($(transpile(scope, binOp.left)) <= $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(>=)}) = :($(transpile(scope, binOp.left)) >= $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(==)}) = :($(transpile(scope, binOp.left)) == $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(+=)}) = :($(transpile(scope, binOp.left)) += $(transpile(scope, binOp.right)))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(-=)}) = :($(transpile(scope, binOp.left)) -= $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:+}) = :($(transpile(scope, binOp.left[])) + $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:-}) = :($(transpile(scope, binOp.left[])) - $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:*}) = :($(transpile(scope, binOp.left[])) * $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:/}) = :($(transpile(scope, binOp.left[])) / $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:<}) = :($(transpile(scope, binOp.left[])) < $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:>}) = :($(transpile(scope, binOp.left[])) > $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(<=)}) = :($(transpile(scope, binOp.left[])) <= $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(>=)}) = :($(transpile(scope, binOp.left[])) >= $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(==)}) = :($(transpile(scope, binOp.left[])) == $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(+=)}) = :($(transpile(scope, binOp.left[])) += $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(-=)}) = :($(transpile(scope, binOp.left[])) -= $(transpile(scope, binOp.right[])))
 
 function transpile(scope::Scope, a::AssignmentExpr)
 	lExpr = transpile(scope, a.lhs)
 	rExpr = transpile(scope, a.rhs)
-	if @capture(lExpr, @var_(v_))
-		return :(@var $v =  $rExpr)
+	rType = typeInfer(scope, a.rhs)
+	if typeof(a.lhs.expr) == DeclExpr
+		#@infiltrate
+		#(found, location, rootScope) = findVar(scope, symbol(a.lhs))
+		#if found && location != :typeScope
+		#	lExpr = rootScope.locals[symbol(a.lhs.expr)]
+		#	setMutable!(lExpr[], true)
+		#	setNew!(lExpr[], false)
+		#end
+	  	if isMutable(a.lhs)
+			return	:(@var $lExpr = $rExpr)
+		else
+			return :(@let $lExpr = $rExpr)
+		end
+	elseif typeof(a.lhs.expr) == Base.RefValue{WGPUVariable}
+		@infiltrate
+		#(found, locations, rootScope) = findVar(scope, symbol(a.lhs))
+		#if found == false
+		#	scope.locals[symbol(a.lhs)] = a.lhs.expr
+		#	setNew!(a.lhs.expr[], true)
+		#	setMutable!(a.lhs.expr[], false)
+		#elseif found == true
+		#	setNew!(a.lhs.expr[], false)
+		#	setMutable!(a.lhs.expr[], true)
+		#end
+		if isNew(a.lhs)
+			return (isMutable(a.lhs) ? :(@var $lExpr = $rExpr) : :(@let $lExpr = $rExpr))
+		else
+			return :($lExpr = $rExpr)
+		end
+	elseif typeof(a.lhs.expr) <: JLExpr
+		error(
+			"This is not covered yet"
+		)
 	else
-		return :($lExpr =  $rExpr)
+		error("This shouldn't have been reached. Assignment LHS is $(typeof(a.lhs)) and RHS is $(typeof(a.rhs))")
 	end
 end
 
@@ -44,9 +85,9 @@ function transpile(scope::Scope, acsExpr::AccessExpr)
 	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
 
-transpile(scope::Scope, declExpr::DeclExpr) = begin
-		:(@var $(Expr(:(::), map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...)))
-end
+transpile(scope::Scope, declExpr::DeclExpr) = Expr(:(::), 
+	map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...
+)
 
 transpile(scope::Scope, ::Type{T}) where T = :($T)
 
@@ -81,10 +122,15 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	fa = map(x -> transpile(scope, x), computeBlk.fargs)
 	fb = map(x -> transpile(scope, x), computeBlk.fbody)
 	ta = map(x -> transpile(scope, x), computeBlk.Targs)
-	workgroupSize = computeBlk.wgSize
+	workgroupSize = (computeBlk.wgSize .|> Int)
 	code = quote end
 	push!(code.args, map(x -> unblock(x), scope.code.args)...)
 	bargs = computeBlk.builtinArgs
-	push!(code.args, Expr(:function, Expr(:where, Expr(:call, fn, bargs...), ta...), quote $(fb...) end))
+	fexpr =	Expr(:function, Expr(:call, fn, bargs...), quote $(fb...) end)
+
+	push!(
+		code.args, 
+		:(@compute @workgroupSizes($(workgroupSize...)) $(fexpr))
+	)
 	return code |> MacroTools.striplines
 end

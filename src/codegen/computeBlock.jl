@@ -1,5 +1,6 @@
-using WGPUCompute
 using MacroTools
+using WGSLTypes
+using WGSLTypes: wgslfunctions
 
 struct WGPUKernelObject
 	func::Function
@@ -11,8 +12,8 @@ struct WorkGroupDims
 	z::UInt32
 end
 
-struct WArray
-	
+
+struct WArray # TODO define these properly
 end
 
 struct WArrayDims
@@ -32,7 +33,9 @@ struct ComputeBlock <: JLBlock
 	builtinArgs::Array{Expr}
 end
 
-function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
+makeVarPair(p::Pair{Symbol, DataType}) = WGPUVariable(p.first, p.second, Generic, nothing, false, false)
+
+function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)	
 	fexpr = @code_string(funcName(funcArgs...)) |> Meta.parse |> MacroTools.striplines
 	@capture(fexpr, function fname_(fargs__) where Targs__ fbody__ end)
 	workgroupSize = Base.eval(wgSize)
@@ -48,19 +51,30 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 			@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
     	end
     )
+    # TODO include these only based on `symbols(funcblock)``
+    scope.globals[:workgroupDims] = makeVarPair(:workgroupDims => WorkGroupDims)
+    scope.globals[:workgroupId] = makeVarPair(:workgroupId=>WorkGroupId)
+    scope.globals[:localId] = makeVarPair(:localId=>LocalInvocationId)
+    scope.globals[:globalId] = makeVarPair(:globalId=>GlobalInvocationId)
+	scope.globals[:ceil] = makeVarPair(:ceil=>Function)
+
+	for wgslf in wgslfunctions
+	    scope.globals[wgslf] = makeVarPair(wgslf=>Function)
+    end
+    
 	builtinArgs = [
 		:(@builtin(global_invocation_id, global_id::Vec3{UInt32})),
 		:(@builtin(local_invocation_id, local_id::Vec3{UInt32})),
 		:(@builtin(num_workgroups, num_workgroups::Vec3{UInt32})),
 		:(@builtin(workgroup_id, workgroup_id::Vec3{UInt32})),
 	]
-	ins = Dict{Symbol, Any}()
 	
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
 		if @capture(symbolArg, iovar_::ioType_{T_, N_})
-			push!(scope.globals, iovar)
-			ins[T] = eltype(inArg)
-			ins[N] = N
+			#scope.globals[T] = eltype(inArg)
+			#scope.globals[N] = Val{ndims(inArg)}
+			scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
+			scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
 		end
 	end
 	
@@ -79,8 +93,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $dimsVar = Vec3{UInt32}($(UInt32.(dims)...))
 					end
 				)
-				push!(scope.globals, dimsVar)
-				ins[dimsVar] = dimsVar
+				scope.globals[dimsVar] = makeVarPair(:dimsVar=>WArrayDims)
 			end
 		elseif @capture(symbolarg, iovar_::ioType_)
 			if eltype(inarg) in [Float32, Int32, UInt32, Bool] # TODO we need to update this
@@ -90,13 +103,9 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $iovar::$(eltype(inarg)) = $(Meta.parse((wgslType(inarg))))
 					end
 				)
-				push!(scope.globals, iovar)
-				ins[iovar] = iovar
+				scope.globals[iovar] = makeVarPair(iovar=>Base.eval(ioType))
 			else
-				push!(
-					scope.globals,
-					iovar
-				)
+				scope.globals[iovar] = makeVarPair(iovar=>Val(iovar))
 			end
 		end
 	end
@@ -112,21 +121,20 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 					@var StorageReadWrite 0 $(idx-1) $(iovar)::Array{$(eltype(inarg)), $(arrayLen)}
 				end
 			)
-			ins[iovar] = iovar
+			# scope.globals[iovar] = iovar
 		end
 	end
 
-	childScope = Scope([Targs...], [:ceil], 0, scope, quote end)
-	fn = inferExpr(childScope, fname)
-	fa = map(x -> inferExpr(childScope, x), fargs)
+	fn = inferExpr(scope, fname)
+	fa = map(_x -> inferExpr(scope, _x), fargs)
 	# make fargs to storage read write
 	for (i, arg) in enumerate(fa)
 		arg.sym.varType = StorageReadWrite
 		arg.sym.varAttr = WGPUVariableAttribute(0, i)
 	end
-	fb = map(x -> inferExpr(childScope, x), fbody)
-	ta = map(x -> inferExpr(childScope, x), Targs)
-	return ComputeBlock(fn, fa, ta, fb, childScope, workgroupSize, workgroupCount, builtinArgs)
+	fb = map(x -> inferExpr(scope, x), fbody)
+	ta = map(x -> inferExpr(scope, x), Targs)
+	return ComputeBlock(fn, fa, ta, fb, scope, workgroupSize, workgroupCount, builtinArgs)
 end
 
 
