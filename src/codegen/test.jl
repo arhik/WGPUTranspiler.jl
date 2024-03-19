@@ -21,7 +21,6 @@ aExpr = inferExpr(scope, :(a::Int32 = b + c))
 transpile(scope, aExpr)
 
 # ------
-
 scope = Scope(
 	Dict(
 		makeVarPair(:b=>Int32),
@@ -30,8 +29,10 @@ scope = Scope(
 	Dict(),	Dict(), 0, nothing, quote end
 )
 
-aExpr = inferExpr(scope, :(a = b + c))
+aExpr = inferExpr(scope, :(a::Int32 = b + c))
+bExpr = inferExpr(scope, :(a = b + c))
 transpile(scope, aExpr)
+transpile(scope, bExpr)
 
 # ------
 
@@ -44,6 +45,23 @@ scope = Scope(
 )
 
 aExpr = inferExpr(scope, :(a = b + c))
+vExpr = inferExpr(scope, :(a = b + c))
+
+transpile(scope, aExpr)
+transpile(scope, vExpr)
+
+# ------
+
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32),
+		makeVarPair(:c=>Int32),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
+aExpr = inferExpr(scope, :(a = b + c))
+aExpr = inferExpr(scope, :(a = c))
 transpile(scope, aExpr)
 
 # ------

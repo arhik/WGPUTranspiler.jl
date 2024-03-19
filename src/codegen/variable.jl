@@ -33,9 +33,16 @@ mutable struct WGPUVariable <: AbstractWGPUVariable
 end
 
 symbol(var::WGPUVariable) = var.sym
+symbol(var::Ref{WGPUVariable}) = var[].sym
+
 isMutable(var::WGPUVariable) = var.mutable
+isMutable(var::Ref{WGPUVariable}) = var[].mutable
 
 isNew(var::WGPUVariable) = var.isnew
+isNew(var::Ref{WGPUVariable}) = var[].isnew
 
-setMutable!(var::WGPUVariable, b::Bool) = (var.mutable = b) 
+setMutable!(var::WGPUVariable, b::Bool) = (var.mutable = b)
+setMutable!(varRef::Ref{WGPUVariable}, b::Bool) = (varRef[].mutable = b)
+
 setNew!(var::WGPUVariable, b::Bool) = (var.isnew = b)
+setNew!(var::Ref{WGPUVariable}, b::Bool) = (var[].isnew = b)

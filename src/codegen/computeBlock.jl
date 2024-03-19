@@ -1,4 +1,3 @@
-using WGPUCompute
 using MacroTools
 using WGSLTypes
 using WGSLTypes: wgslfunctions

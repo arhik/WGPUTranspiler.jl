@@ -56,54 +56,19 @@ function inferExpr(scope::Scope, expr::Expr)
 	end
 end
 
-function declExpr(scope, a::Val{:hello}) 
-	@error "Not implemented yet"
-end
-
-function declExpr(scope, a::Symbol, b::Symbol)
-	aExpr = inferExpr(scope, a)
-	bExpr = Base.eval(b)
-	return DeclExpr(aExpr, bExpr)
-end
-
-function typeExpr(scope, a::Symbol, b::Vector{Any})
-	aExpr = inferExpr(scope, a)
-	bExpr = map(x -> inferExpr(scope, x), b)
-	return TypeExpr(aExpr, bExpr)
-end
-
-function declExpr(scope, a::Symbol, b::Expr)
-	bExpr = inferExpr(scope, b)
-	aExpr = inferExpr(scope, a)
-	return DeclExpr(aExpr, bExpr)
-end
-
-function inferVariable(scope, expr::Expr)
-	if @capture(expr, a_::b_{t__})
-		var = WGPUVariable(a, eval(b{t...}), Generic, nothing, false, false)
-		scope.globals[Symbol(:origin_, a)] = var
-		scope.locals[a] = Ref{WGPUVariable}(var)
-	elseif @capture(expr, a_::b_)
-		var = WGPUVariable(a, eval(b), Generic, nothing, false, false)
-		scope.globals[Symbol(:origin_, a)] = var
-		scope.locals[a] = Ref{WGPUVariable}(var)
-	else
-		error("This expression $expr type is not captured yet")
-	end
-end
 
 function inferExpr(scope::Scope, a::Symbol)
-	var = WGPUVariable(a, Any, Generic, nothing, false, false)
-	if a == :workgroupDims
-		var.dataType = WorkGroupDims
-		var.varType = Dims
-	elseif a == :workgroupId
-		var.dataType = WorkGroupId
-		var.varType = Intrinsic
+	(found, location, rootScope) = findVar(scope, a)
+	var = Ref{WGPUVariable}()
+	if found == false
+		var[] = WGPUVariable(a, Any, Generic, nothing, false, false)
+		scope.globals[Symbol(:origin_, a)] = var[]
+	elseif found == true && location == :globalScope
+		var[] = rootScope.globalScope[Symbol(:origin_, a)]
+	else found == true && location == :localScope
+		var = rootScope.locals[a]
 	end
-	scope.globals[Symbol(:origin_, a)] = var
-	# scope.locals[a] = Ref{WGPUVariable}(var)
-	var
+	return var
 end
 
 function inferRange(scope, expr::Expr)

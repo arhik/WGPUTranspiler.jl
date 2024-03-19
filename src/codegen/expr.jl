@@ -1,29 +1,34 @@
 # BinaryExpressions
 struct BinaryExpr <: BinaryOp
 	op::Union{Symbol, Function}
-	left::Union{WGPUVariable, Scalar, JLExpr}
-	right::Union{WGPUVariable, Scalar, JLExpr}
+	left::Union{Ref{WGPUVariable}, Scalar, JLExpr}
+	right::Union{Ref{WGPUVariable}, Scalar, JLExpr}
 end
 
-function binaryOp(scope::Scope, op::Union{Symbol, Function}, a::Union{Symbol, Number, Expr}, b::Union{Number, Symbol, Expr})
+function binaryOp(
+	scope::Scope, 
+	op::Union{Symbol, Function}, 
+	a::Union{Symbol, Number, Expr}, 
+	b::Union{Number, Symbol, Expr};
+)	
 	lOperand = inferExpr(scope, a)
-	inferScope!(scope, lOperand)
+	inferScope!(scope, lOperand[])
 	rOperand = inferExpr(scope, b)
-	inferScope!(scope, rOperand)
+	inferScope!(scope, rOperand[])
 	return BinaryExpr(op, lOperand, rOperand)
 end
 
-typeInfer(scope::Scope, binOp::BinaryExpr) = typeintersect(typeInfer(scope, binOp.left), typeInfer(scope, binOp.right))
+typeInfer(scope::Scope, binOp::BinaryExpr) = typeintersect(typeInfer(scope, binOp.left[]), typeInfer(scope, binOp.right[]))
 
 function symbol(binOp::BinaryExpr)
-	syms = map(symbol, (binOp.left, binOp.right)) 
+	syms = map(symbol, (binOp.left[], binOp.right[])) 
 	return syms
 end
 
 # Common inferScope! for all binary operations
 function inferScope!(scope::Scope, jlexpr::BinaryOp)
-	inferScope!(scope, jlexpr.left)
-	inferScope!(scope, jlexpr.right)
+	inferScope!(scope, jlexpr.left[])
+	inferScope!(scope, jlexpr.right[])
 end
 
 # CallExpression 
@@ -133,21 +138,50 @@ struct TypeExpr <: JLExpr
 	types::Vector{WGPUVariable}
 end
 
+function typeExpr(scope, a::Symbol, b::Vector{Any})
+	aExpr = inferExpr(scope, a)
+	bExpr = map(x -> inferExpr(scope, x), b)
+	return TypeExpr(aExpr, bExpr)
+end
+
 symbol(tExpr::TypeExpr) = (symbol(tExpr.sym), map(x -> symbol(x), tExpr.types)...)
 
 typeInfer(scope::Scope, typeExpr::TypeExpr) = typeInfer(scope, typeExpr.sym)
 
 struct DeclExpr <: JLExpr
-	sym::WGPUVariable
+	sym::Ref{WGPUVariable}
 	dataType::Union{DataType, TypeExpr}
 end
 
-isMutable(decl::DeclExpr) = isMutable(decl.sym)
-setMutable!(decl::DeclExpr, b::Bool) = setMutable!(decl.sym, b)
-isNew(decl::DeclExpr) = isNew(decl.sym)
-setNew!(decl::DeclExpr, b::Bool) = setNew!(decl.sym, b)
+function declExpr(scope, a::Symbol, b::Symbol)
+	(found, location, rootScope) = findVar(scope, a)
+	if found && location == :localScope
+		error("Duplication declaration of variable $a")
+	end
+	aExpr = inferExpr(scope, a)
+	bExpr = Base.eval(b)
+	aExpr[].dataType = bExpr
+	return DeclExpr(aExpr, bExpr)
+end
 
-symbol(decl::DeclExpr) = symbol(decl.sym)
+function declExpr(scope, a::Symbol, b::Expr)
+	(found, location, rootScope) = findVar(scope, a)
+	if found && location == :localScope
+		error("Duplicate declaration of variable $a")
+	end
+	bExpr = inferExpr(scope, b)
+	bType = typeInfer(scope, b)
+	aExpr = inferExpr(scope, a)
+	aExpr[].dataType = bType
+	return DeclExpr(aExpr, bExpr)
+end
+
+isMutable(decl::DeclExpr) = isMutable(decl.sym[])
+setMutable!(decl::DeclExpr, b::Bool) = setMutable!(decl.sym[], b)
+isNew(decl::DeclExpr) = isNew(decl.sym[])
+setNew!(decl::DeclExpr, b::Bool) = setNew!(decl.sym[], b)
+
+symbol(decl::DeclExpr) = symbol(decl.sym[])
 
 typeInfer(scope::Scope, declexpr::DeclExpr) = begin
 	sym = symbol(declexpr)
@@ -161,3 +195,4 @@ typeInfer(scope::Scope, declexpr::DeclExpr) = begin
 	end
 	typeInfer(scope, declexpr.sym)
 end
+

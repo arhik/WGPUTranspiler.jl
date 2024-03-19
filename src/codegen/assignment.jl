@@ -10,27 +10,30 @@ typeInfer(scope::Scope, var::WGPUVariable) = begin
 	return var.dataType
 end
 
+typeInfer(scope::Scope, varRef::Ref{WGPUVariable}) = typeInfer(scope, varRef[])
+
 struct LHS
-	variable::Union{WGPUVariable, JLExpr}
+	expr::Union{Ref{WGPUVariable}, JLExpr}
 end
 
-isMutable(lhs::LHS) = isMutable(lhs.variable)
-setMutable!(lhs, b::Bool) = setMutable!(lhs.variable, b)
+isMutable(lhs::LHS) = isMutable(lhs.expr)
+setMutable!(lhs::LHS, b::Bool) = setMutable!(lhs.expr, b)
 
-isNew(lhs::LHS) = isNew(lhs.variable)
-setNew!(lhs::LHS, b::Bool) = setNew!(lhs.variable, b)
 
-symbol(lhs::LHS) = symbol(lhs.variable)
+isNew(lhs::LHS) = isNew(lhs.expr)
+setNew!(lhs::LHS, b::Bool) = setNew!(lhs.expr, b)
+
+symbol(lhs::LHS) = symbol(lhs.expr)
 
 typeInfer(scope::Scope, lhs::LHS) = begin
-	typeInfer(scope, lhs.variable)
+	typeInfer(scope, lhs.expr)
 end
 
 mutable struct RHS
-	rhsExpr::Union{Nothing, WGPUVariable, Scalar, JLExpr}
+	expr::Union{Nothing, Ref{WGPUVariable}, Scalar, JLExpr}
 end
 
-symbol(rhs::RHS) = symbol(rhs.variable)
+symbol(rhs::RHS) = symbol(rhs.expr)
 symbol(::Nothing) = nothing
 symbol(sym::Symbol) = sym
 symbol(::Scalar) = nothing
@@ -39,7 +42,7 @@ function inferScope!(scope, lhs::LHS)
 	sym = symbol(lhs)
 	(found, location, rootScope) = findVar(scope, sym)
 	if found == true && location != :typeScope
-		setMutable!(lhs.variable, true)
+		setMutable!(lhs.expr, true)
 	end
 end
 
@@ -48,7 +51,7 @@ function inferScope!(scope, var::WGPUVariable)
 	@assert found == true "Variable $(var.sym) is not in local, global and type scope"
 end
 
-typeInfer(scope::Scope, rhs::RHS) = typeInfer(scope, rhs.rhsExpr)
+typeInfer(scope::Scope, rhs::RHS) = typeInfer(scope, rhs.expr)
 typeInfer(scope::Scope, s::Scalar) = eltype(s)
 
 struct AssignmentExpr <: JLExpr
@@ -61,65 +64,97 @@ symbol(assign::AssignmentExpr) = symbol(assign.lhs)
 
 function assignExpr(scope, lhs::Symbol, rhs::Symbol)
 	@infiltrate
-	(found, location, rootScope) = findVar(scope, lhs)
-	inferScope!(scope, rhs)
-	if found
-		lExpr = getVarFrom(rootScope, lhs)
+	rhsExpr = RHS(inferExpr(scope, rhs))
+	rhsType = typeInfer(scope, rhsExpr)
+	(lhsfound, lhslocation, lhsScope) = findVar(scope, lhs)
+	lhsExpr = Ref{LHS}()
+	if lhsfound
+		lExpr = lhsScope.locals[lhs]
+		lhsExpr[] = LHS(lExpr)
+		lExpr[].dataType = rhsType
+		setNew!(lhsExpr[], false)
+		setMutable!(lhsExpr[], true)
+	else
+		lVar = inferExpr(scope, lhs)
+		scope.locals[lhs] = lVar
+		lVar[].dataType = rhsType
+		lhsExpr[] = LHS(lVar)
+		setNew!(lhsExpr[], true)
+		setMutable!(lhsExpr[], false)
 	end
+	statement = AssignmentExpr(lhsExpr[], rhsExpr, scope)
+	return statement
 end
 
 function assignExpr(scope, lhs::Symbol, rhs::Expr)
-	@infiltrate
 	rhsExpr = RHS(inferExpr(scope, rhs))
+	rhsType = typeInfer(scope, rhsExpr)
 	(found, location, rootScope) = findVar(scope, lhs)
-	if found == false
-		lExpr = inferExpr(scope, lhs)
+	lhsExpr = Ref{LHS}()
+	if found && location != :typeScope
+		lExpr = rootScope.locals[lhs]
+		lhsExpr[] = LHS(lExpr)
+		@assert lExpr[].dataType == rhsType
+		setNew!(lhsExpr[], false)
+		setMutable!(lhsExpr[], true)
+	elseif found == false && location != :typeScope
+		# new var
+		lvar = inferExpr(scope, lhs)
+		scope.locals[lhs] = lvar
+		lvar[].dataType = rhsType
+		lhsExpr[] = LHS(lvar)
+		setNew!(lhsExpr[], true)
+		setMutable!(lhsExpr[], false)
 	end
+	statement = AssignmentExpr(lhsExpr[], rhsExpr, scope)
+	return statement
 end
 
 function assignExpr(scope, lhs::Expr, rhs::Expr)
-	@infiltrate
-end
-
-function assignExpr(scope, lhs, rhs)
-	if lhs == :gId
-		@infiltrate
-	end
-	rhsExpr = RHS(inferExpr(scope, rhs))
-	rhsType = typeInfer(scope, rhsExpr)
 	lExpr = inferExpr(scope, lhs)
+	rhsExpr = RHS(inferExpr(scope, rhs))
+	inferScope!(scope, rhsExpr.expr)
+	rhsType = typeInfer(scope, rhsExpr)
 	lhsExpr = Ref{LHS}()
-	if typeof(lExpr) == DeclExpr
-		lhsType = typeInfer(scope, lExpr)
-		@assert rhsType == lhsType "Datatypes of assignment operands are not compatible $lhsType != $rhsType"
-		lhsExpr[] = LHS(lExpr)
-		setNew!(lhsExpr[], true)
-	elseif typeof(lExpr) == IndexExpr
-		lhsType = typeInfer(scope, lExpr)
-		@assert rhsType == lhsType "Datatypes of assignment operands are not compatible $lhsType != $rhsType"
-		lhsExpr[] = LHS(lExpr)
-		setMutable!(lhsExpr[], true)
-	elseif typeof(lExpr) == WGPUVariable
-		# lhsType = typeInfer(scope, lExpr)
-		(lhsFound, location, rootScope) = findVar(scope, symbol(lExpr))
-		@assert location != :typeScope "variable is found in typeScope and cannot be used as local variable"
-		if (lhsFound == false)
-			if lhs == :gId
-				@infiltrate
-			end
-			lhsExpr[] = LHS(lExpr)
-			lExpr.dataType = rhsType
-			scope.locals[symbol(lExpr)] = lhsExpr[].variable
-			setNew!(lhsExpr[], true)
-			setMutable!(lhsExpr[], false)
-		else (lhsFound == true)
-			if lhs== :gId
-				@infiltrate
-			end
-			lhsExpr[] = LHS(lExpr)
-			setNew!(lhsExpr[], false)
+	if typeof(lExpr) == IndexExpr
+		(found, location, rootScope) = findVar(scope, symbol(lExpr))
+		if found && location != :typeScope
+			lExpr = rootScope.locals[symbol(lExpr)]
+			lhsExpr[]  = LHS(lExpr[])
+			lhsType = typeInfer(scope, lhsExpr[])
+			@assert lhsType == rhsType "$lhsType != $rhsType"
 			setMutable!(lhsExpr[], true)
+			setNew!(lhsExpr[], false)
+		else found == false
+			error("LHS var $(symbol(lhs)) had to be mutable for indexing")
 		end
+	elseif typeof(lExpr) == AccessExpr
+		(found, location, rootScope) = findVar(scope, symbol(lExpr))
+		if found && location !=:typeScope
+			lExpr = rootScope.locals[symbol(lExpr)]
+			lhsExpr[] = LHS(lExpr[])
+			setMutable!(lhsExpr[], true)
+			setNew!(lhsExpr[], false)
+		else found == false
+			error("LHS var $(symbol(lhs)) has to be mutable for `getproperty`")
+		end
+	elseif typeof(lExpr) == DeclExpr
+		(found, location, rootScope) = findVar(scope, symbol(lExpr))
+		if found && location !=:typeScope
+			lExpr = rootScope.locals[symbol(lExpr)]
+			lhsExpr[] = LHS(lExpr)
+			setMutable!(lhsExpr[], true)
+			setNew!(lhsExpr[], false)
+		else found ==  false
+			lvar = scope.globals[Symbol(:origin_, symbol(lExpr))]
+			lvarRef = Ref{WGPUVariable}(lvar)
+			scope.locals[symbol(lExpr)] = lvarRef
+			lhsExpr[] = LHS(lExpr)
+			setMutable!(lhsExpr[], false)
+			setNew!(lhsExpr[], true)
+		end
+	else
+		error("This $lhs type Expr is not captured yet")
 	end
 	statement = AssignmentExpr(lhsExpr[], rhsExpr, scope)
 	return statement
