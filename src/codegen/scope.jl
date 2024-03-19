@@ -1,10 +1,10 @@
 
-export Scope, getDataTypeFrom, getDataType, getGlobalScope
+export Scope, getDataTypeFrom, getDataType, getGlobalScope, findVar
 
 struct Scope
-	locals::Dict{Symbol, Union{DataType, Type}}
-	globals::Dict{Symbol, Union{DataType, Type}}
-	typeVars::Dict{Symbol, Union{DataType, Type}}
+	locals::Dict{Symbol, Ref{WGPUVariable}}
+	globals::Dict{Symbol, WGPUVariable}
+	typeVars::Dict{Symbol, WGPUVariable}
 	depth::Int
 	parent::Union{Nothing, Scope}
 	code::Expr
@@ -49,11 +49,11 @@ function getDataTypeFrom(scope::Union{Nothing, Scope}, location, var::Symbol)
 	if scope == nothing
 		@error "Nothing scope cannot be searched for $var symbol"
 	elseif location == :localScope
-		return scope.locals[var]
+		return getindex(scope.locals[var]).dataType
 	elseif location == :globalScope
-		return scope.globals[var]
+		return scope.globals[var].dataType
 	elseif location == :typeScope
-		return scope.typeVars[var]
+		return scope.typeVars[var].dataType
 	end
 end
 

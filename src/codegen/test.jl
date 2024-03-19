@@ -1,60 +1,193 @@
 using Revise
 using WGPUTranspiler
-using WGPUTranspiler: WorkGroupDims
+using WGPUTranspiler: WorkGroupDims, Generic, WGPUVariable
 using WGPUCompute
 using CodeTracking
 using Chairmarks
 
+makeVarPair(p::Pair{Symbol, DataType}) = p.first => WGPUVariable(p.first, p.second, Generic, nothing, false, false)
 
-scope = Scope(Dict(:b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
+# ------
+
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32),
+		makeVarPair(:c=>Int32),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
 aExpr = inferExpr(scope, :(a::Int32 = b + c))
 transpile(scope, aExpr)
 
-scope = Scope(Dict(:b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
+# ------
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32),
+		makeVarPair(:c=>Int32),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
+aExpr = inferExpr(scope, :(a::Int32 = b + c))
+bExpr = inferExpr(scope, :(a = b + c))
+transpile(scope, aExpr)
+transpile(scope, bExpr)
+
+# ------
+
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32),
+		makeVarPair(:c=>Int32),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
+aExpr = inferExpr(scope, :(a = b + c))
+vExpr = inferExpr(scope, :(a = b + c))
+
+transpile(scope, aExpr)
+transpile(scope, vExpr)
+
+# ------
+
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32),
+		makeVarPair(:c=>Int32),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
+aExpr = inferExpr(scope, :(a = b + c))
+aExpr = inferExpr(scope, :(a = c))
+transpile(scope, aExpr)
+
+# ------
+
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32),
+		makeVarPair(:c=>Int32),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
+
 aExpr = inferExpr(scope, :(a = b + c))
 transpile(scope, aExpr)
 
-scope = Scope(Dict(:b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
-aExpr = inferExpr(scope, :(a = b + c))
-transpile(scope, aExpr)
+# ------- 
+
 # TODO rerunning transpile(scope, aExpr) will have declexpr for a lik a::Int32 which is a bug
 
 # This should fail because of type mismatches
-scope = Scope(Dict(:workgroupDims => WorkGroupDims, :b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:workgroupDims=>WorkGroupDims),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
 aExpr = inferExpr(scope, :(a::Int32 = workgroupDims.x))
 transpile(scope, aExpr)
 
-scope = Scope(Dict(:workgroupDims => WorkGroupDims, :b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
-aExpr = inferExpr(scope, :(a = workgroupDims.x))
-transpile(scope, aExpr)
+# ----
+scope = Scope(
+	Dict(
+		makeVarPair(:workgroupDims=>WorkGroupDims),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
 
-scope = Scope(Dict(:workgroupDims => WorkGroupDims, :b=>Int32, :c=>Int32), Dict(), Dict(), 0, nothing, quote end)
 aExpr = inferExpr(scope, :(a::UInt32 = workgroupDims.x))
 transpile(scope, aExpr)
 
-# This should fail variable a is not in scope
-scope = Scope(Dict(:b=>Int32, :c=>UInt32), Dict(:(+)=>Function, :g=>Function), Dict(), 0, nothing, quote end)
+# ----
+scope = Scope(
+	Dict(
+		makeVarPair(:workgroupDims=>WorkGroupDims),
+	),
+	Dict(),	Dict(), 0, nothing, quote end
+)
+
+aExpr = inferExpr(scope, :(a::UInt32 = workgroupDims.x))
+transpile(scope, aExpr)
+
+# This should fail variable a in rhs is not in scope
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32), 
+		makeVarPair(:c=>UInt32), 
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:g=>Function)
+	),
+	Dict(),
+	Dict(), 0, nothing, quote end
+)
 cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(a + b + c) + g(2, 3, c)))
 transpile(scope, cExpr)
 
 # This should fail too datatypes are different
-scope = Scope(Dict(:b=>Int32, :c=>UInt32), Dict(:(+)=>Function, :g=>Function), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32), 
+		makeVarPair(:c=>UInt32), 
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:g=>Function)
+	),
+	Dict(),
+	Dict(), 0, nothing, quote end
+)
 cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2, 3, c)))
 transpile(scope, cExpr)
 
+# ------
 # This should fail too 
-scope = Scope(Dict(:b=>UInt32, :c=>UInt32), Dict(:(+)=>Function, :g=>Function), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>Int32), 
+		makeVarPair(:c=>UInt32), 
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:g=>Function)
+	),
+	Dict(),
+	Dict(), 0, nothing, quote end
+)
+
 cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2.0, 3, c)))
 transpile(scope, cExpr)
 
-
-scope = Scope(Dict(:b => UInt32, :c => UInt32), Dict(:(+)=>Function, :g=>Function), Dict(), 0, nothing, quote end)
+# ------
+scope = Scope(
+	Dict(
+		makeVarPair(:b=>UInt32), 
+		makeVarPair(:c=>UInt32), 
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:g=>Function)
+	),
+	Dict(),
+	Dict(), 0, nothing, quote end
+)
 inferredExpr = inferExpr(scope, :(a::UInt32 = ( b + g(b + c))))
 transpile(scope, inferredExpr)
 
-scope = Scope(Dict(:a=>WgpuArray{UInt32, 16}, :d=>Int32, :b=>WgpuArray{UInt32, 16}, :c=>UInt32), 
-	Dict(:g=>Function, :(+)=>Function), Dict(), 0, nothing, quote end)
-inferredExpr = inferExpr(scope, :(a[d] = c + b[1]))
+# ----
+scope = Scope(
+	Dict(
+		makeVarPair(:a=>WgpuArray{UInt32, 16}), 
+		makeVarPair(:d=>UInt32), 
+		makeVarPair(:c=>UInt32), 
+		makeVarPair(:b=>WgpuArray{UInt32, 16}), 
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:g=>Function)
+	),
+	Dict(),
+	Dict(), 0, nothing, quote end
+)
+
+inferredExpr = inferExpr(scope, :(a[d] = c + b[1])) #TODO 1 is a scalar Int32 will fail
 transpile(scope, inferredExpr)
 
 # ----- 
@@ -62,7 +195,13 @@ struct B
 	b::WgpuArray{Int32, 16}
 end
 
-scope = Scope(Dict(:a=>WgpuArray{Int32, 16}, :b=>Int32, :c=>Int32, :g=>B, :(+)=>Function), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:a=>WgpuArray{Int32, 16}), 
+		makeVarPair(:c=>UInt32), 
+		makeVarPair(:g=>B), 
+		makeVarPair(:(+)=>Function)
+	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(scope, :(a[c] = g.b[1]))
 transpile(scope, inferredExpr)
 
@@ -75,20 +214,23 @@ struct C
 	c::WgpuArray{Int32, 16}
 end
 
-scope = Scope(Dict(:a=>C, :g=>B), Dict(), Dict(), 0, nothing, quote end)
-inferredExpr = inferExpr(scope, :(a.c[1] = g.b[1]))
+scope = Scope(Dict(
+	makeVarPair(:a=>C), 
+	makeVarPair(:g=>B)
+	), Dict(), Dict(), 0, nothing, quote end)
+inferredExpr = inferExpr(scope, :(a.c[1] = g.b[1])) # scalar indexes will fail
 transpile(scope, inferredExpr)
 # -----
 
-
 scope = Scope(
 	Dict(
-		:a=>WgpuArray{Float32, 16}, 
-		:b=>WgpuArray{Float32, 16},
-		:c=>WgpuArray{Float32, 16},
-		:d=>WgpuArray{Float32, 16},
-	), 
-	Dict(:println=>Function,:(+)=>Function), Dict(), 0, nothing, quote end
+		makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		makeVarPair(:b=>WgpuArray{Float32, 16}),
+		makeVarPair(:c=>WgpuArray{Float32, 16}),
+		makeVarPair(:d=>WgpuArray{Float32, 16}),
+		makeVarPair(:println=>Function),
+		makeVarPair(:(+)=>Function)
+	), Dict(), Dict(), 0, nothing, quote end
 )
 
 inferredExpr = inferExpr(
@@ -102,16 +244,17 @@ inferredExpr = inferExpr(
 transpile(scope, inferredExpr)
 
 # -----
-
 scope = Scope(
 	Dict(
-		:a=>WgpuArray{Float32, 16}, 
-		:b=>WgpuArray{Float32, 16},
-		:c=>WgpuArray{Float32, 16},
-		:d=>WgpuArray{Float32, 16},
-	), 
-	Dict(:println=>Function,:(+)=>Function), Dict(), 0, nothing, quote end
+		makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		makeVarPair(:b=>WgpuArray{Float32, 16}),
+		makeVarPair(:c=>WgpuArray{Float32, 16}),
+		makeVarPair(:d=>WgpuArray{Float32, 16}),
+		makeVarPair(:println=>Function),
+		makeVarPair(:(+)=>Function)
+	), Dict(), Dict(), 0, nothing, quote end
 )
+
 inferredExpr = inferExpr(
 	scope, 
 	:(for i in 0:1:12
@@ -125,17 +268,18 @@ inferredExpr = inferExpr(
 transpile(scope, inferredExpr)
 
 # -----
-
 scope = Scope(
 	Dict(
-		:x=>Int32,
-		:a=>WgpuArray{Float32, 16}, 
-		:b=>WgpuArray{Float32, 16},
-		:c=>WgpuArray{Float32, 16},
-		:d=>WgpuArray{Float32, 16},
-	), 
-	Dict(:println=>Function,:(+)=>Function), Dict(), 0, nothing, quote end
+		makeVarPair(:x=>Int32), 
+		makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		makeVarPair(:b=>WgpuArray{Float32, 16}),
+		makeVarPair(:c=>WgpuArray{Float32, 16}),
+		makeVarPair(:d=>WgpuArray{Float32, 16}),
+		makeVarPair(:println=>Function),
+		makeVarPair(:(+)=>Function)
+	), Dict(), Dict(), 0, nothing, quote end
 )
+
 inferredExpr = inferExpr(
 	scope, 
 	:( for i in 1:10
@@ -151,8 +295,10 @@ transpile(scope, inferredExpr)
 
 # ----
 scope = Scope(
-	Dict(:d=>WgpuArray{Float32, 16}, :c=>WgpuArray{Float32, 16}), 
-	Dict(:g=>WgpuArray{Float32, 16}, :println=>Function, :(+)=>Function), 
+	Dict(
+		makeVarPair(:println=>Function)
+	), 
+	Dict(), 
 	Dict(), 0, nothing, quote end
 )
 inferredExpr = inferExpr(
@@ -179,7 +325,12 @@ end
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Int32, 4, 4));
 
-scope = Scope(Dict(:out=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:out=>WgpuArray{Float32, 16}), 
+		makeVarPair(:x=>WgpuArray{Float32, 16})
+	), 
+	Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
 	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
@@ -201,7 +352,12 @@ end
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Float32, 4, 4));
 
-scope = Scope(Dict(:out=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:out=>WgpuArray{Float32, 16}),
+		makeVarPair(:x=>WgpuArray{Float32, 16})
+	),
+	Dict(), Dict(), 0, nothing, quote end)
 
 inferredExpr = inferExpr(
 	scope, 
@@ -211,7 +367,7 @@ transpile(scope, inferredExpr)
 
 # ---------
 
-function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
+function cast_kernel(x::WgpuArray{T, N}, a::WgpuArray{S, N}) where {T, S, N}
 	xdim = workgroupDims.x
 	ydim = workgroupDims.y
 	gIdx = workgroupId.x*xdim + localId.x
@@ -219,7 +375,9 @@ function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
 	gId = xDims.x*gIdy + gIdx
 	for i in 1:19
 		for j in 1:20
+			d = 1.0
 			a[i][j] = 1.0
+			d += a[i][j]
 		end
 	end
 end	
@@ -227,7 +385,11 @@ end
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Int32, 4, 4));
 
-scope = Scope(Dict(:out=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		makeVarPair(:x=>WgpuArray{Float32, 16})
+	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
 	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
@@ -253,7 +415,11 @@ end
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Float32, 4, 4));
 
-scope = Scope(Dict(:a=>WgpuArray{Float32, 16}, :x=>WgpuArray{Float32, 16}), Dict(), Dict(), 0, nothing, quote end)
+scope = Scope(
+	Dict(
+		makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		makeVarPair(:x=>WgpuArray{Float32, 16})
+	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
 	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
