@@ -16,24 +16,24 @@ transpile(scope::Scope, rhs::RHS) = transpile(scope, rhs.expr)
 transpile(scope::Scope, binOp::BinaryOp) = transpile(scope, binOp, Val(binOp.op))
 
 # for each op in [:+, :-, :*, :\, :<, :>, :<=, :>=, :==, :+=, :-=]
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:+}) = :($(transpile(scope, binOp.left[])) + $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:-}) = :($(transpile(scope, binOp.left[])) - $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:*}) = :($(transpile(scope, binOp.left[])) * $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:/}) = :($(transpile(scope, binOp.left[])) / $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:<}) = :($(transpile(scope, binOp.left[])) < $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:>}) = :($(transpile(scope, binOp.left[])) > $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(<=)}) = :($(transpile(scope, binOp.left[])) <= $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(>=)}) = :($(transpile(scope, binOp.left[])) >= $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(==)}) = :($(transpile(scope, binOp.left[])) == $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(+=)}) = :($(transpile(scope, binOp.left[])) += $(transpile(scope, binOp.right[])))
-transpile(scope::Scope, binOp::BinaryOp, op::Val{:(-=)}) = :($(transpile(scope, binOp.left[])) -= $(transpile(scope, binOp.right[])))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:+}) = :($(transpile(scope, binOp.left)) + $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:-}) = :($(transpile(scope, binOp.left)) - $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:*}) = :($(transpile(scope, binOp.left)) * $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:/}) = :($(transpile(scope, binOp.left)) / $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:<}) = :($(transpile(scope, binOp.left)) < $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:>}) = :($(transpile(scope, binOp.left)) > $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(<=)}) = :($(transpile(scope, binOp.left)) <= $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(>=)}) = :($(transpile(scope, binOp.left)) >= $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(==)}) = :($(transpile(scope, binOp.left)) == $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(+=)}) = :($(transpile(scope, binOp.left)) += $(transpile(scope, binOp.right)))
+transpile(scope::Scope, binOp::BinaryOp, op::Val{:(-=)}) = :($(transpile(scope, binOp.left)) -= $(transpile(scope, binOp.right)))
 
 function transpile(scope::Scope, a::AssignmentExpr)
 	lExpr = transpile(scope, a.lhs)
 	rExpr = transpile(scope, a.rhs)
 	rType = typeInfer(scope, a.rhs)
+	@infiltrate
 	if typeof(a.lhs.expr) == DeclExpr
-		#@infiltrate
 		#(found, location, rootScope) = findVar(scope, symbol(a.lhs))
 		#if found && location != :typeScope
 		#	lExpr = rootScope.locals[symbol(a.lhs.expr)]
@@ -46,7 +46,6 @@ function transpile(scope::Scope, a::AssignmentExpr)
 			return :(@let $lExpr = $rExpr)
 		end
 	elseif typeof(a.lhs.expr) == Base.RefValue{WGPUVariable}
-		@infiltrate
 		#(found, locations, rootScope) = findVar(scope, symbol(a.lhs))
 		#if found == false
 		#	scope.locals[symbol(a.lhs)] = a.lhs.expr
@@ -61,6 +60,10 @@ function transpile(scope::Scope, a::AssignmentExpr)
 		else
 			return :($lExpr = $rExpr)
 		end
+	elseif typeof(a.lhs.expr) == IndexExpr
+		return :($lExpr = $rExpr)
+	elseif typeof(a.lhs.expr) == AccessExpr
+		return :($lExpr = $rExpr)
 	elseif typeof(a.lhs.expr) <: JLExpr
 		error(
 			"This is not covered yet"

@@ -12,13 +12,13 @@ function binaryOp(
 	b::Union{Number, Symbol, Expr};
 )	
 	lOperand = inferExpr(scope, a)
-	inferScope!(scope, lOperand[])
+	inferScope!(scope, lOperand)
 	rOperand = inferExpr(scope, b)
-	inferScope!(scope, rOperand[])
+	inferScope!(scope, rOperand)
 	return BinaryExpr(op, lOperand, rOperand)
 end
 
-typeInfer(scope::Scope, binOp::BinaryExpr) = typeintersect(typeInfer(scope, binOp.left[]), typeInfer(scope, binOp.right[]))
+typeInfer(scope::Scope, binOp::BinaryExpr) = typeintersect(typeInfer(scope, binOp.left), typeInfer(scope, binOp.right))
 
 function symbol(binOp::BinaryExpr)
 	syms = map(symbol, (binOp.left[], binOp.right[])) 
@@ -27,14 +27,14 @@ end
 
 # Common inferScope! for all binary operations
 function inferScope!(scope::Scope, jlexpr::BinaryOp)
-	inferScope!(scope, jlexpr.left[])
-	inferScope!(scope, jlexpr.right[])
+	inferScope!(scope, jlexpr.left)
+	inferScope!(scope, jlexpr.right)
 end
 
 # CallExpression 
 struct CallExpr <: JLExpr
-	func::Union{WGPUVariable, JLExpr}
-	args::Vector{Union{WGPUVariable, Scalar, JLExpr}}
+	func::Union{Ref{WGPUVariable}, JLExpr}
+	args::Vector{Union{Ref{WGPUVariable}, Scalar, JLExpr}}
 end
 
 function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
@@ -63,8 +63,8 @@ end
 
 # IndexExpressions
 struct IndexExpr <: JLExpr
-	sym::Union{WGPUVariable, JLExpr}
-	idx::Union{WGPUVariable, Scalar, JLExpr}
+	sym::Union{Ref{WGPUVariable}, JLExpr}
+	idx::Union{Ref{WGPUVariable}, Scalar, JLExpr}
 end
 
 symbol(idxExpr::IndexExpr) = symbol(idxExpr.sym)
@@ -100,8 +100,8 @@ end
 
 # AccessorExpression
 struct AccessExpr<: JLExpr
-	sym::Union{WGPUVariable, JLExpr}
-	field::Union{WGPUVariable, JLExpr}
+	sym::Union{Ref{WGPUVariable}, JLExpr}
+	field::Union{Ref{WGPUVariable}, JLExpr}
 end
 
 isMutable(axsExpr::AccessExpr) = isMutable(axsExpr.sym)
@@ -134,9 +134,10 @@ end
 typeInfer(scope::Scope, axsExpr::AccessExpr) = fieldtype(typeInfer(scope, axsExpr.sym), symbol(axsExpr.field))
 
 struct TypeExpr <: JLExpr
-	sym::WGPUVariable
-	types::Vector{WGPUVariable}
+	sym::Ref{WGPUVariable}
+	types::Vector{Ref{WGPUVariable}}
 end
+
 
 function typeExpr(scope, a::Symbol, b::Vector{Any})
 	aExpr = inferExpr(scope, a)
@@ -146,7 +147,13 @@ end
 
 symbol(tExpr::TypeExpr) = (symbol(tExpr.sym), map(x -> symbol(x), tExpr.types)...)
 
-typeInfer(scope::Scope, typeExpr::TypeExpr) = typeInfer(scope, typeExpr.sym)
+typeInfer(scope::Scope, tExpr::TypeExpr) = begin
+	if symbol(tExpr)[1] == :WgpuArray
+		return WgpuArray{map(x -> typeInfer(scope, x), tExpr.types)...}
+	else
+		return typeInfer(scope, tExpr.sym)
+	end
+end
 
 struct DeclExpr <: JLExpr
 	sym::Ref{WGPUVariable}
@@ -154,6 +161,7 @@ struct DeclExpr <: JLExpr
 end
 
 function declExpr(scope, a::Symbol, b::Symbol)
+	@infiltrate
 	(found, location, rootScope) = findVar(scope, a)
 	if found && location == :localScope
 		error("Duplication declaration of variable $a")
@@ -170,7 +178,7 @@ function declExpr(scope, a::Symbol, b::Expr)
 		error("Duplicate declaration of variable $a")
 	end
 	bExpr = inferExpr(scope, b)
-	bType = typeInfer(scope, b)
+	bType = typeInfer(scope, bExpr)
 	aExpr = inferExpr(scope, a)
 	aExpr[].dataType = bType
 	return DeclExpr(aExpr, bExpr)
@@ -186,7 +194,7 @@ symbol(decl::DeclExpr) = symbol(decl.sym[])
 typeInfer(scope::Scope, declexpr::DeclExpr) = begin
 	sym = symbol(declexpr)
 	(found, location, rootScope) = findVar(scope, sym)
-	if found == false
+	if found == false && location != :typeScope
 		scope.locals[sym] = declexpr.sym
 		var = scope.locals[sym]
 		setproperty!(var[], :dataType, declexpr.dataType)
