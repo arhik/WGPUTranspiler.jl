@@ -1,6 +1,9 @@
 export Scalar, assignExpr
 
 typeInfer(scope::Scope, var::WGPUVariable) = begin
+	if symbol(var) == :WgpuArray
+		return WgpuArray
+	end
 	sym = symbol(var)
 	inferScope!(scope, var)
 	(found, location, rootScope) = findVar(scope, sym)
@@ -51,6 +54,11 @@ function inferScope!(scope, var::WGPUVariable)
 	@assert found == true "Variable $(var.sym) is not in local, global and type scope"
 end
 
+function inferScope!(scope, var::Ref{WGPUVariable})
+	(found, _) = findVar(scope, (var[]).sym)
+	@assert found == true "Variable $(var.sym) is not in local, global and type scope"
+end
+
 typeInfer(scope::Scope, rhs::RHS) = typeInfer(scope, rhs.expr)
 typeInfer(scope::Scope, s::Scalar) = eltype(s)
 
@@ -63,7 +71,6 @@ end
 symbol(assign::AssignmentExpr) = symbol(assign.lhs)
 
 function assignExpr(scope, lhs::Symbol, rhs::Symbol)
-	@infiltrate
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	rhsType = typeInfer(scope, rhsExpr)
 	(lhsfound, lhslocation, lhsScope) = findVar(scope, lhs)
@@ -119,12 +126,13 @@ function assignExpr(scope, lhs::Expr, rhs::Expr)
 	if typeof(lExpr) == IndexExpr
 		(found, location, rootScope) = findVar(scope, symbol(lExpr))
 		if found && location != :typeScope
-			lExpr = rootScope.locals[symbol(lExpr)]
-			lhsExpr[]  = LHS(lExpr[])
+			lvar = location == :localScope ? rootScope.locals[symbol(lExpr)] : rootScope.globals[symbol(lExpr)]
+			#lvar = rootScope.locals[symbol(lExpr)]
+			lhsExpr[]  = LHS(lExpr)
 			lhsType = typeInfer(scope, lhsExpr[])
 			@assert lhsType == rhsType "$lhsType != $rhsType"
-			setMutable!(lhsExpr[], true)
-			setNew!(lhsExpr[], false)
+			#setMutable!(lhsExpr[], true)
+			#setNew!(lhsExpr[], false)
 		else found == false
 			error("LHS var $(symbol(lhs)) had to be mutable for indexing")
 		end
@@ -146,7 +154,7 @@ function assignExpr(scope, lhs::Expr, rhs::Expr)
 			setMutable!(lhsExpr[], true)
 			setNew!(lhsExpr[], false)
 		else found ==  false
-			lvar = scope.globals[Symbol(:origin_, symbol(lExpr))]
+			lvar = scope.globals[symbol(lExpr)]
 			lvarRef = Ref{WGPUVariable}(lvar)
 			scope.locals[symbol(lExpr)] = lvarRef
 			lhsExpr[] = LHS(lExpr)

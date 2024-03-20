@@ -25,7 +25,7 @@ function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
 	stopExpr =  rangeExpr.stop
 	stepExpr = rangeExpr.step
 	idxExpr = inferVariable(childScope, :($idx::UInt32))
-	scope.globals[Symbol(:origin_, idx)] = idxExpr[]
+	scope.globals[idx] = idxExpr[]
 	scope.locals[idx] = idxExpr
 	inferScope!(childScope, idxExpr[])
 	exprArray = JLExpr[]
