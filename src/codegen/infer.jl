@@ -62,9 +62,11 @@ function inferExpr(scope::Scope, a::Symbol)
 	var = Ref{WGPUVariable}()
 	if found == false
 		var[] = WGPUVariable(a, Any, Generic, nothing, false, false)
-		scope.globals[Symbol(:origin_, a)] = var[]
+		scope.globals[a] = var[]
 	elseif found == true && location == :globalScope
-		var[] = rootScope.globalScope[Symbol(:origin_, a)]
+		var[] = rootScope.globals[a]
+	elseif found == true && location == :typeScope
+		var[] = rootScope.typeVars[a]
 	else found == true && location == :localScope
 		var = rootScope.locals[a]
 	end

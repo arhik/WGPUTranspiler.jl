@@ -13,7 +13,7 @@ struct WorkGroupDims
 end
 
 
-struct WArray # TODO define these properly
+struct WArray{T, N} # TODO define these properly
 end
 
 struct WArrayDims
@@ -23,9 +23,9 @@ struct WArrayDims
 end
 
 struct ComputeBlock <: JLBlock
-	fname::WGPUVariable
+	fname::Ref{WGPUVariable}
 	fargs::Vector{DeclExpr}
-	Targs::Vector{WGPUVariable}
+	Targs::Vector{Ref{WGPUVariable}}
 	fbody::Vector{JLExpr}
 	scope::Union{Nothing, Scope}
 	wgSize::NTuple{3, UInt32}
@@ -57,7 +57,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
     scope.globals[:localId] = makeVarPair(:localId=>LocalInvocationId)
     scope.globals[:globalId] = makeVarPair(:globalId=>GlobalInvocationId)
 	scope.globals[:ceil] = makeVarPair(:ceil=>Function)
-
+	
 	for wgslf in wgslfunctions
 	    scope.globals[wgslf] = makeVarPair(wgslf=>Function)
     end
@@ -93,7 +93,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 						@const $dimsVar = Vec3{UInt32}($(UInt32.(dims)...))
 					end
 				)
-				scope.globals[dimsVar] = makeVarPair(:dimsVar=>WArrayDims)
+				scope.globals[dimsVar] = makeVarPair(dimsVar=>WArrayDims)
 			end
 		elseif @capture(symbolarg, iovar_::ioType_)
 			if eltype(inarg) in [Float32, Int32, UInt32, Bool] # TODO we need to update this
@@ -129,8 +129,9 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
 	fa = map(_x -> inferExpr(scope, _x), fargs)
 	# make fargs to storage read write
 	for (i, arg) in enumerate(fa)
-		arg.sym.varType = StorageReadWrite
-		arg.sym.varAttr = WGPUVariableAttribute(0, i)
+		# (arg.sym[]).dataType = typeInfer(scope, fa)
+		(arg.sym[]).varType = StorageReadWrite
+		(arg.sym[]).varAttr = WGPUVariableAttribute(0, i)
 	end
 	fb = map(x -> inferExpr(scope, x), fbody)
 	ta = map(x -> inferExpr(scope, x), Targs)

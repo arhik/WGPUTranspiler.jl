@@ -320,7 +320,7 @@ function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
 	gIdy = workgroupId.y*ydim + localId.y
 	gId = xDims.x*gIdy + gIdx
 	out[gId] = S(ceil(x[gId]))
-end	
+end
 
 a = WgpuArray(rand(Float32, 4, 4));
 b = WgpuArray(rand(Int32, 4, 4));
@@ -344,8 +344,8 @@ function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
 	ydim = workgroupDims.y
 	gIdx = workgroupId.x*xdim + localId.x
 	gIdy = workgroupId.y*ydim + localId.y
-	gId = xDims.x*gIdy + gIdx
-	gId = gId
+	gId::UInt32 = xDims.x*gIdy + gIdx
+	#gId = 1.0
 	out[gId] = S(ceil(x[gId]))
 end	
 
@@ -354,8 +354,8 @@ b = WgpuArray(rand(Float32, 4, 4));
 
 scope = Scope(
 	Dict(
-		makeVarPair(:out=>WgpuArray{Float32, 16}),
-		makeVarPair(:x=>WgpuArray{Float32, 16})
+		#makeVarPair(:out=>WgpuArray{Float32, 16}),
+		#makeVarPair(:x=>WgpuArray{Float32, 16})
 	),
 	Dict(), Dict(), 0, nothing, quote end)
 

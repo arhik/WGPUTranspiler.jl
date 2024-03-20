@@ -1,5 +1,6 @@
 module WGPUTranspiler
 
+using WGPUCompute
 using CodeTracking
 using Infiltrator 
 
