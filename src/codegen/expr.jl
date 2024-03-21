@@ -79,7 +79,6 @@ end
 
 isMutable(idxExpr::IndexExpr) = isMutable(idxExpr.sym)
 setMutable!(idxExpr::IndexExpr, b::Bool) = setMutable!(idxExpr.sym, b)
-isNew(idxExpr::IndexExpr) = isNew(idxExpr.sym) # TODO this should always be false
 
 function inferScope!(scope::Scope, jlexpr::IndexExpr)
 	
@@ -106,7 +105,6 @@ end
 
 isMutable(axsExpr::AccessExpr) = isMutable(axsExpr.sym)
 setMutable!(axsExpr::AccessExpr, b::Bool) = setMutable!(axsExpr.sym, b)
-isNew(axsExpr::AccessExpr) = isNew(axsExpr.sym) # TODO this should always be false
 
 function accessExpr(scope::Scope, sym::Symbol, field::Symbol)
 	symExpr = inferExpr(scope, sym)
@@ -161,9 +159,8 @@ struct DeclExpr <: JLExpr
 end
 
 function declExpr(scope, a::Symbol, b::Symbol)
-	@infiltrate
 	(found, location, rootScope) = findVar(scope, a)
-	if found && location == :localScope
+	if found && location == :globalScope
 		error("Duplication declaration of variable $a")
 	end
 	aExpr = inferExpr(scope, a)
@@ -186,8 +183,6 @@ end
 
 isMutable(decl::DeclExpr) = isMutable(decl.sym[])
 setMutable!(decl::DeclExpr, b::Bool) = setMutable!(decl.sym[], b)
-isNew(decl::DeclExpr) = isNew(decl.sym[])
-setNew!(decl::DeclExpr, b::Bool) = setNew!(decl.sym[], b)
 
 symbol(decl::DeclExpr) = symbol(decl.sym[])
 
