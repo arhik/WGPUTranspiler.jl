@@ -58,6 +58,12 @@ end
 
 typeInfer(scope::Scope, cExpr::CallExpr) = begin
 	# @assert allequal(cExpr.args) "All aguments are expected to be same"
+	if symbol(cExpr.func) in keys(scope.typeVars) # TODO cover others
+		tVar = scope.typeVars[cExpr.func |> symbol]
+		if tVar.dataType <: Number
+			return tVar.dataType
+		end
+	end
 	typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
 end
 
@@ -146,8 +152,8 @@ end
 symbol(tExpr::TypeExpr) = (symbol(tExpr.sym), map(x -> symbol(x), tExpr.types)...)
 
 typeInfer(scope::Scope, tExpr::TypeExpr) = begin
-	if symbol(tExpr)[1] == :WgpuArray
-		return WgpuArray{map(x -> typeInfer(scope, x), tExpr.types)...}
+	if symbol(tExpr)[1] == :WgpuArray # Hardcoded
+		return typeInfer(scope, tExpr, Val(symbol(tExpr)[1]))
 	else
 		return typeInfer(scope, tExpr.sym)
 	end
