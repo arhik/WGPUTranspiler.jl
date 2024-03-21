@@ -58,8 +58,9 @@ end
 
 typeInfer(scope::Scope, cExpr::CallExpr) = begin
 	# @assert allequal(cExpr.args) "All aguments are expected to be same"
-	if symbol(cExpr.func) in keys(scope.typeVars) # TODO cover others
-		tVar = scope.typeVars[cExpr.func |> symbol]
+	(found, location, rootScope) = findVar(scope, symbol(cExpr.func))
+	if found && location == :typeScope
+		tVar = rootScope.typeVars[cExpr.func |> symbol]
 		if tVar.dataType <: Number
 			return tVar.dataType
 		end
