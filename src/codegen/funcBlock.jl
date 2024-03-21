@@ -1,7 +1,7 @@
 struct FuncBlock <: JLBlock
-	fname::WGPUVariable
+	fname::Ref{WGPUVariable}
 	fargs::Vector{DeclExpr}
-	Targs::Vector{WGPUVariable}
+	Targs::Vector{Ref{WGPUVariable}}
 	fbody::Vector{JLExpr}
 	scope::Union{Nothing, Scope}
 end

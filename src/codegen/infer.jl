@@ -24,9 +24,9 @@ function inferExpr(scope::Scope, expr::Expr)
 	elseif @capture(expr, a_ == b_)
 		return binaryOp(scope, :>=, a, b)
 	elseif @capture(expr, a_ += b_)
-		return binaryOp(scope, :+=, a, b)
+		return binaryOp(scope, :+=, a, b) # TODO this should be assignment expr
 	elseif @capture(expr, a_ -= b_)
-		return binaryOp(scope, :-=, a, b)
+		return binaryOp(scope, :-=, a, b) # TODO this should be assignment expr
 	elseif @capture(expr, f_(args__))
 		return callExpr(scope, f, args)
 	elseif @capture(expr, a_::b_)
@@ -61,14 +61,17 @@ function inferExpr(scope::Scope, a::Symbol)
 	(found, location, rootScope) = findVar(scope, a)
 	var = Ref{WGPUVariable}()
 	if found == false
-		var[] = WGPUVariable(a, Any, Generic, nothing, false, false)
+		var[] = WGPUVariable(a, Any, Generic, nothing, false, true)
 		scope.globals[a] = var[]
 	elseif found == true && location == :globalScope
 		var[] = rootScope.globals[a]
+		var[].undefined = true
 	elseif found == true && location == :typeScope
 		var[] = rootScope.typeVars[a]
+		var[].undefined = false
 	else found == true && location == :localScope
 		var = rootScope.locals[a]
+		var[].undefined = false
 	end
 	return var
 end

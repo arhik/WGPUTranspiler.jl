@@ -5,7 +5,9 @@ using WGPUCompute
 using CodeTracking
 using Chairmarks
 
-makeVarPair(p::Pair{Symbol, DataType}) = p.first => WGPUVariable(p.first, p.second, Generic, nothing, false, false)
+makeVarPair(p::Pair{Symbol, DataType}) = p.first => WGPUVariable(
+	p.first, p.second, Generic, nothing, false, true
+)
 
 # ------
 
@@ -18,6 +20,7 @@ scope = Scope(
 )
 
 aExpr = inferExpr(scope, :(a::Int32 = b + c))
+#bExpr = inferExpr(scope, :(a::Int32 = b + c))
 transpile(scope, aExpr)
 
 # ------
@@ -61,8 +64,9 @@ scope = Scope(
 )
 
 aExpr = inferExpr(scope, :(a = b + c))
-aExpr = inferExpr(scope, :(a = c))
+bExpr = inferExpr(scope, :(a = c))
 transpile(scope, aExpr)
+transpile(scope, bExpr)
 
 # ------
 
@@ -323,12 +327,10 @@ function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
 end
 
 a = WgpuArray(rand(Float32, 4, 4));
-b = WgpuArray(rand(Int32, 4, 4));
+b = WgpuArray(rand(Float32, 4, 4));
 
 scope = Scope(
 	Dict(
-		makeVarPair(:out=>WgpuArray{Float32, 16}), 
-		makeVarPair(:x=>WgpuArray{Float32, 16})
 	), 
 	Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
@@ -345,7 +347,7 @@ function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
 	gIdx = workgroupId.x*xdim + localId.x
 	gIdy = workgroupId.y*ydim + localId.y
 	gId::UInt32 = xDims.x*gIdy + gIdx
-	#gId = 1.0
+	gId = 1
 	out[gId] = S(ceil(x[gId]))
 end	
 
@@ -387,8 +389,8 @@ b = WgpuArray(rand(Int32, 4, 4));
 
 scope = Scope(
 	Dict(
-		makeVarPair(:a=>WgpuArray{Float32, 16}), 
-		makeVarPair(:x=>WgpuArray{Float32, 16})
+		#makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		#makeVarPair(:x=>WgpuArray{Float32, 16})
 	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
@@ -398,7 +400,7 @@ transpile(scope, inferredExpr)
 
 # ---------
 
-function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
+function cast_kernel(x::WgpuArray{T, N}, a::WgpuArray{S, N}) where {T, S, N}
 	xdim = workgroupDims.x
 	ydim = workgroupDims.y
 	gIdx = workgroupId.x*xdim + localId.x
@@ -406,7 +408,9 @@ function cast_kernel(x::WgpuArray{T, N}, out::WgpuArray{S, N}) where {T, S, N}
 	gId = xDims.x*gIdy + gIdx
 	for i in 1:19
 		for j in 1:20
-			a[i][j] = 1.0
+			d = 10
+			a[i][j] = 1
+			d = d + 1
 		end
 	end
 end	
@@ -417,8 +421,8 @@ b = WgpuArray(rand(Float32, 4, 4));
 
 scope = Scope(
 	Dict(
-		makeVarPair(:a=>WgpuArray{Float32, 16}), 
-		makeVarPair(:x=>WgpuArray{Float32, 16})
+		#makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		#makeVarPair(:x=>WgpuArray{Float32, 16})
 	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
