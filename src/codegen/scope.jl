@@ -65,3 +65,27 @@ function getDataType(scope::Union{Nothing, Scope}, var::Symbol)
 		return Any
 	end
 end
+
+
+function Base.isequal(scope::Scope, other::Scope)
+	length(scope.locals) == length(other.locals) &&
+	keys(scope.locals) == keys(other.locals) &&
+	length(scope.globals) == length(other.globals) &&
+	keys(scope.globals) == keys(other.globals) &&
+	for (key, value) in scope.locals
+		if !Base.isequal(other.locals[key][], value[])
+			return false
+		end
+	end
+	for (key, value) in scope.globals
+		if Base.isequal(other.globals[key][], value[])
+			return false
+		end
+	end
+	for (key, value) in scope.typeVars
+		if Base.isequal(other.typeVars[key][], value[])
+			return false
+		end
+	end
+	return true
+end

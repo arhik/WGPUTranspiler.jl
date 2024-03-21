@@ -32,7 +32,6 @@ function transpile(scope::Scope, a::AssignmentExpr)
 	lExpr = transpile(scope, a.lhs)
 	rExpr = transpile(scope, a.rhs)
 	rType = typeInfer(scope, a.rhs)
-	@infiltrate
 	if typeof(a.lhs.expr) == DeclExpr
 		#(found, location, rootScope) = findVar(scope, symbol(a.lhs))
 		#if found && location != :typeScope
@@ -54,6 +53,9 @@ function transpile(scope::Scope, a::AssignmentExpr)
 		#elseif found == true
 		#	setNew!(a.lhs.expr[], false)
 		#	setMutable!(a.lhs.expr[], true)
+		#end
+		##if a.lhs.expr[].undefined == true
+		#	scope.locals[symbol(a.lhs)] = a.lhs.expr
 		#end
 		if isNew(a.lhs)
 			return (isMutable(a.lhs) ? :(@var $lExpr = $rExpr) : :(@let $lExpr = $rExpr))
@@ -100,21 +102,21 @@ transpile(scope::Scope, typeExpr::TypeExpr) = Expr(
 )
 
 function transpile(scope::Scope, rblock::RangeBlock)
-	(start, step, stop) = map(x -> transpile(scope, x), (rblock.start, rblock.step, rblock.stop))
+	(start, step, stop) = map(x -> transpile(rblock.scope, x), (rblock.start, rblock.step, rblock.stop))
 	range = :($start:$step:$stop)
-	block = map(x -> transpile(scope, x), rblock.block)
-	idx = transpile(scope, rblock.idx)
+	block = map(x -> transpile(rblock.scope, x), rblock.block)
+	idx = transpile(rblock.scope, rblock.idx)
 	return Expr(:for, Expr(:(=), idx, range), quote $(block...) end)
 end
 
 function transpile(scope::Scope, ifblock::IfBlock)
-	c = transpile(scope, ifblock.cond)
+	c = transpile(ifblock.scope, ifblock.cond)
 	block = map(x -> transpile(scope, x), ifblock.block)
 	return Expr(:if, c, quote $(block...) end)
 end
 
 function transpile(scope::Scope, funcblk::FuncBlock)
-	fn = transpile(scope, funcblk.fname)
+	fn = transpile(funcblk.scope, funcblk.fname)
 	fa = map(x -> transpile(scope, x), funcblk.fargs)
 	fb = map(x -> transpile(scope, x), funcblk.fbody)
 	return Expr(:function, Expr(:call, fn, fa...), quote $(fb...) end)
@@ -133,7 +135,7 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 
 	push!(
 		code.args, 
-		:(@compute @workgroupSizes($(workgroupSize...)) $(fexpr))
+		:(@compute @workgroupSize($(workgroupSize...)) $(fexpr))
 	)
 	return code |> MacroTools.striplines
 end
