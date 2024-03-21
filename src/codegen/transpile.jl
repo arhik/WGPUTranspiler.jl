@@ -106,7 +106,7 @@ function transpile(scope::Scope, rblock::RangeBlock)
 	range = :($start:$step:$stop)
 	block = map(x -> transpile(rblock.scope, x), rblock.block)
 	idx = transpile(rblock.scope, rblock.idx)
-	return Expr(:for, Expr(:(=), idx, range), quote $(block...) end)
+	return :(@forloop $(Expr(:for, Expr(:(=), idx, range), quote $(block...) end)))
 end
 
 function transpile(scope::Scope, ifblock::IfBlock)

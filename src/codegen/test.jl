@@ -1,7 +1,7 @@
 using Revise
+using WGPUCompute
 using WGPUTranspiler
 using WGPUTranspiler: WorkGroupDims, Generic, WGPUVariable
-using WGPUCompute
 using CodeTracking
 using Chairmarks
 
@@ -365,6 +365,7 @@ inferredExpr = inferExpr(
 	scope, 
 	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
 )
+
 transpile(scope, inferredExpr)
 
 # ---------

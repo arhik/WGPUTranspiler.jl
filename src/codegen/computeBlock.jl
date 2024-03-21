@@ -35,8 +35,7 @@ end
 
 makeVarPair(p::Pair{Symbol, DataType}) = WGPUVariable(p.first, p.second, Generic, nothing, false, false)
 
-function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)	
-	fexpr = @code_string(funcName(funcArgs...)) |> Meta.parse |> MacroTools.striplines
+function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexpr::Expr)
 	@capture(fexpr, function fname_(fargs__) where Targs__ fbody__ end)
 	workgroupSize = Base.eval(wgSize)
     if workgroupSize |> length < 3
@@ -63,10 +62,10 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs)
     end
     
 	builtinArgs = [
-		:(@builtin(global_invocation_id, global_id::Vec3{UInt32})),
-		:(@builtin(local_invocation_id, local_id::Vec3{UInt32})),
-		:(@builtin(num_workgroups, num_workgroups::Vec3{UInt32})),
-		:(@builtin(workgroup_id, workgroup_id::Vec3{UInt32})),
+		:(@builtin(global_invocation_id, globalId::Vec3{UInt32})),
+		:(@builtin(local_invocation_id, localId::Vec3{UInt32})),
+		:(@builtin(num_workgroups, numWorkgroups::Vec3{UInt32})),
+		:(@builtin(workgroup_id, workgroupId::Vec3{UInt32})),
 	]
 	
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
