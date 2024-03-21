@@ -2,7 +2,7 @@ export Scalar, assignExpr
 
 typeInfer(scope::Scope, var::WGPUVariable) = begin
 	if symbol(var) == :WgpuArray
-		return WgpuArray
+		return eval(symbol(var))
 	end
 	sym = symbol(var)
 	inferScope!(scope, var)

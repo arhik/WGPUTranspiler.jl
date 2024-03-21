@@ -1,6 +1,5 @@
 module WGPUTranspiler
 
-using WGPUCompute
 using CodeTracking
 using Infiltrator 
 
@@ -19,5 +18,6 @@ include("codegen/infer.jl")
 include("codegen/resolve.jl")
 include("codegen/transpile.jl")
 include("codegen/tree.jl")
+include("codegen/compile.jl")
 
 end # module WGPUTranspiler
