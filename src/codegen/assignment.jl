@@ -160,6 +160,7 @@ function assignExpr(scope, lhs::Symbol, rhs::Symbol)
 	return statement
 end
 
+
 function assignExpr(scope, lhs::Symbol, rhs::Expr)
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	rhsType = typeInfer(scope, rhsExpr)
@@ -194,7 +195,7 @@ function assignExpr(scope, lhs::Symbol, rhs::Expr)
 	return statement
 end
 
-function assignExpr(scope, lhs::Expr, rhs::Expr)
+function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
 	lExpr = inferExpr(scope, lhs)
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	inferScope!(scope, rhsExpr.expr)
