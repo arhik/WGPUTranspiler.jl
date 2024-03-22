@@ -58,7 +58,6 @@ end
 
 typeInfer(scope::Scope, cExpr::CallExpr) = begin
 	# @assert allequal(cExpr.args) "All aguments are expected to be same"
-	@infiltrate
 	(found, location, rootScope) = findVar(scope, symbol(cExpr.func))
 	if found && location == :typeScope
 		tVar = rootScope.typeVars[cExpr.func |> symbol]
@@ -93,7 +92,6 @@ function inferScope!(scope::Scope, jlexpr::IndexExpr)
 end
 
 typeInfer(scope::Scope, idxExpr::IndexExpr) = begin
-	@infiltrate
 	idx = idxExpr.idx
 	# TODO handle scalar cases for indexing ...
 	if typeof(idx) == Scalar

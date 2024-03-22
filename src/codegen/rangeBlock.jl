@@ -20,7 +20,6 @@ end
 function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
 	# TODO deal with StepRangeLen also may be ? I don't see its use though.
 	childScope = Scope(Dict(), Dict(), Dict(), scope.depth + 1, scope, :())
-	@infiltrate
 	rangeExpr = inferRange(childScope, range)
 	startExpr = rangeExpr.start
 	if typeof(startExpr) == Ref{WGPUVariable}
