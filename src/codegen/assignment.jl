@@ -54,8 +54,10 @@ function inferScope!(scope, var::WGPUVariable)
 end
 
 function inferScope!(scope, var::Ref{WGPUVariable})
-	(found, _) = findVar(scope, (var[]).sym)
-	@assert found == true "Variable $(var.sym) is not in local, global and type scope"
+	if var[].dataType != Function
+		(found, _) = findVar(scope, var[].sym)
+		@assert found == true "Variable $(var.sym) is not in local, global and type scope"
+	end
 end
 
 typeInfer(scope::Scope, rhs::RHS) = typeInfer(scope, rhs.expr)
