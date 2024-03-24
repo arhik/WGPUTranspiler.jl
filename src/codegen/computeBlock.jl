@@ -12,9 +12,7 @@ struct WorkGroupDims
 	z::UInt32
 end
 
-
-struct WArray{T, N} # TODO define these properly
-end
+struct WArray{T, N} end # TODO define these properly
 
 struct WArrayDims
 	x::UInt32
@@ -55,7 +53,6 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
     scope.globals[:workgroupId] = makeVarPair(:workgroupId=>WorkGroupId)
     scope.globals[:localId] = makeVarPair(:localId=>LocalInvocationId)
     scope.globals[:globalId] = makeVarPair(:globalId=>GlobalInvocationId)
-	scope.globals[:ceil] = makeVarPair(:ceil=>Function)
 	
 	for wgslf in wgslfunctions
 	    scope.globals[wgslf] = makeVarPair(wgslf=>Function)
@@ -74,12 +71,16 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 			#scope.globals[N] = Val{ndims(inArg)}
 			scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
 			scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
+		elseif @capture(symbolArg, iovar_::ioType_)
+			if ioType == :Function
+				scope.typeVars[iovar] = makeVarPair(nameof(inArg)=>Val{nameof(inArg)})
+			end
 		end
 	end
 	
 	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
 		if @capture(symbolarg, iovar_::ioType_{T_, N_})
-		# TODO instead of assert we should branch for each case of argument
+			# TODO instead of assert we should branch for each case of argument
 			if ioType == :WgpuArray
 				dimsVar = Symbol(iovar, :Dims)
 				dims = size(inarg)
@@ -103,34 +104,43 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 					end
 				)
 				scope.globals[iovar] = makeVarPair(iovar=>Base.eval(ioType))
+			elseif typeof(inarg) <: Function
+				#scope.globals[iovar] = makeVarPair(iovar=>typeof(inarg))
 			else
-				scope.globals[iovar] = makeVarPair(iovar=>Val(iovar))
+				scope.globals[iovar] = makeVarPair(iovar=>Val{iovar})
 			end
 		end
 	end
 
+	bindingCount = 0
 	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
 		if @capture(symbolarg, iovar_::ioType_{T_, N_})
 			# TODO instead of assert we should branch for each case of argument
-			@assert ioType == :WgpuArray #"Expecting WgpuArray Type, received $ioType instead"
+			@assert ioType == :WgpuArray # "Expecting WgpuArray Type, received $ioType instead"
 			arrayLen = reduce(*, size(inarg))
 			push!(
 				scope.code.args,
 				quote
-					@var StorageReadWrite 0 $(idx-1) $(iovar)::Array{$(eltype(inarg)), $(arrayLen)}
+					@var StorageReadWrite 0 $(bindingCount) $(iovar)::Array{$(eltype(inarg)), $(arrayLen)}
 				end
 			)
+			bindingCount += 1
 			# scope.globals[iovar] = iovar
 		end
 	end
-
+	
 	fn = inferExpr(scope, fname)
 	fa = map(_x -> inferExpr(scope, _x), fargs)
 	# make fargs to storage read write
+	bindingCount = 0
 	for (i, arg) in enumerate(fa)
 		# (arg.sym[]).dataType = typeInfer(scope, fa)
+		if arg.sym[].dataType == Function
+			continue
+		end
 		(arg.sym[]).varType = StorageReadWrite
-		(arg.sym[]).varAttr = WGPUVariableAttribute(0, i)
+		(arg.sym[]).varAttr = WGPUVariableAttribute(0, bindingCount)
+		bindingCount += 1
 	end
 	fb = map(x -> inferExpr(scope, x), fbody)
 	ta = map(x -> inferExpr(scope, x), Targs)
