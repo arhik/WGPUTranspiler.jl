@@ -43,7 +43,6 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
     if workgroupCount |> length < 3
     	workgroupCount = (workgroupCount..., repeat([1,], inner=(3 - length(workgroupCount)))...)
     end
-
     push!(scope.code.args, quote 
 			@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
     	end
@@ -65,15 +64,36 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 		:(@builtin(workgroup_id, workgroupId::Vec3{UInt32})),
 	]
 	
+	# First consider only typeVars
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
 		if @capture(symbolArg, iovar_::ioType_{T_, N_})
-			#scope.globals[T] = eltype(inArg)
-			#scope.globals[N] = Val{ndims(inArg)}
-			scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
-			scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
+			if getkey(scope.typeVars, T, nothing) == nothing
+				scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
+			else
+				v = getindex(scope.typeVars, T)
+				@assert v.dataType == eltype(inArg) "type parameter $T has conflicting types"
+			end
+			if getkey(scope.typeVars, N, nothing) == nothing
+				scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
+			else
+				v = getindex(scope.typeVars, N)
+				@assert v.dataType == Val{ndims(inArg)} "type parameter $T has conflicting types"
+			end
+		end
+	end
+	
+	# Second consider other variables
+	for (inArg, symbolArg) in zip(funcArgs, fargs)
+		if @capture(symbolArg, iovar_::ioType_{T_, N_})
+			# do nothing	
 		elseif @capture(symbolArg, iovar_::ioType_)
 			if ioType == :Function
 				scope.typeVars[iovar] = makeVarPair(nameof(inArg)=>Val{nameof(inArg)})
+			elseif getkey(scope.typeVars, ioType, nothing) == nothing
+				#scope.globals[iovar] = makeVarPair(iovar=>eval(ioType))
+			else
+				v = getindex(scope.typeVars, ioType)
+				@assert v.dataType == eltype(inArg)
 			end
 		end
 	end
@@ -96,14 +116,13 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 				scope.globals[dimsVar] = makeVarPair(dimsVar=>WArrayDims)
 			end
 		elseif @capture(symbolarg, iovar_::ioType_)
-			if eltype(inarg) in [Float32, Int32, UInt32, Bool] # TODO we need to update this
+			if eltype(inarg) <: Number
 				push!(
 					scope.code.args, 
 					quote
 						@const $iovar::$(eltype(inarg)) = $(Meta.parse((wgslType(inarg))))
 					end
 				)
-				scope.globals[iovar] = makeVarPair(iovar=>Base.eval(ioType))
 			elseif typeof(inarg) <: Function
 				#scope.globals[iovar] = makeVarPair(iovar=>typeof(inarg))
 			else
@@ -111,7 +130,6 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 			end
 		end
 	end
-
 	bindingCount = 0
 	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
 		if @capture(symbolarg, iovar_::ioType_{T_, N_})
@@ -128,7 +146,8 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 			# scope.globals[iovar] = iovar
 		end
 	end
-	
+
+
 	fn = inferExpr(scope, fname)
 	fa = map(_x -> inferExpr(scope, _x), fargs)
 	# make fargs to storage read write

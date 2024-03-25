@@ -170,6 +170,10 @@ function declExpr(scope, a::Symbol, b::Symbol)
 	if found && location == :globalScope
 		error("Duplication declaration of variable $a")
 	end
+	(found, location, rootScope) = findVar(scope, b)
+	if found && location == :typeScope
+		b = rootScope.typeVars[b].dataType
+	end
 	aExpr = inferExpr(scope, a)
 	bExpr = Base.eval(b)
 	aExpr[].dataType = bExpr
