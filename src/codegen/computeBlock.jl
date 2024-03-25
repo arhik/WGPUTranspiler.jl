@@ -33,7 +33,7 @@ end
 
 makeVarPair(p::Pair{Symbol, DataType}) = WGPUVariable(p.first, p.second, Generic, nothing, false, false)
 
-function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexpr::Expr)
+function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArgs, fexpr::Expr)
 	@capture(fexpr, function fname_(fargs__) where Targs__ fbody__ end)
 	workgroupSize = Base.eval(wgSize)
     if workgroupSize |> length < 3
@@ -145,6 +145,16 @@ function computeBlock(scope, islaunch, wgSize, wgCount, funcName, funcArgs, fexp
 			bindingCount += 1
 			# scope.globals[iovar] = iovar
 		end
+	end
+
+	for (idx, (symbolarg, (inType, inSize))) in enumerate(shmem)
+		arrayLen = reduce(*, inSize)
+		push!(
+			scope.code.args,
+			quote
+				@var WorkGroup $symbolarg::Array{$(inType), $(arrayLen)}
+			end
+		)
 	end
 
 
