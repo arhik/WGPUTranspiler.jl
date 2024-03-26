@@ -63,6 +63,8 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 		:(@builtin(num_workgroups, numWorkgroups::Vec3{UInt32})),
 		:(@builtin(workgroup_id, workgroupId::Vec3{UInt32})),
 	]
+
+	
 	
 	# First consider only typeVars
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
@@ -155,6 +157,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 				@var WorkGroup $symbolarg::Array{$(inType), $(arrayLen)}
 			end
 		)
+		scope.globals[symbolarg] = makeVarPair(symbolarg=>inType)
 	end
 
 
