@@ -22,7 +22,7 @@ function inferExpr(scope::Scope, expr::Expr)
 	elseif @capture(expr, a_ >= b_)
 		return binaryOp(scope, :>=, a, b)
 	elseif @capture(expr, a_ == b_)
-		return binaryOp(scope, :>=, a, b)
+		return binaryOp(scope, :(==), a, b)
 	elseif @capture(expr, a_ += b_)
 		return binaryOp(scope, :+=, a, b) # TODO this should be assignment expr
 	elseif @capture(expr, a_ -= b_)
