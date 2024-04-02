@@ -50,7 +50,9 @@ function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
 end
 
 symbol(a::Vector{T}) where T <: Union{WGPUVariable, Scalar, JLExpr} = (map(symbol, a))
-symbol(callexpr::CallExpr) = (symbol(callexpr.func), symbol(callexpr.args))
+symbol(callexpr::CallExpr) = begin
+	symbol(callexpr.func)
+end
 
 function inferScope!(scope::Scope, jlexpr::CallExpr)
 	# We don't have to do anything for now
@@ -58,6 +60,9 @@ end
 
 typeInfer(scope::Scope, cExpr::CallExpr) = begin
 	# @assert allequal(cExpr.args) "All aguments are expected to be same"
+	if symbol(cExpr) in [:Float32, :UInt32, :Int32, ] # TODO update this list
+		return eval(symbol(cExpr))
+	end
 	(found, location, rootScope) = findVar(scope, symbol(cExpr.func))
 	if found && location == :typeScope
 		tVar = rootScope.typeVars[cExpr.func |> symbol]
@@ -98,7 +103,7 @@ typeInfer(scope::Scope, idxExpr::IndexExpr) = begin
 		idx = Scalar(idx.element |> UInt32)
 	end
 	ty = typeInfer(scope, idx)
-	@assert ty == UInt32 "types do not match $(symbol(idx))::$ty vs UInt32"
+	@assert ty <: Integer "types do not match $(symbol(idx))::$ty vs UInt32"
 	# TODO we might have to deal with multi-indexing
 	return eltype(typeInfer(scope, idxExpr.sym))
 end
