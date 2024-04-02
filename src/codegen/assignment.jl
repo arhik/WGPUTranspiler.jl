@@ -179,7 +179,7 @@ function assignExpr(scope, lhs::Symbol, rhs::Expr)
 		lExprRef = Ref{WGPUVariable}(lExpr)
 		rootScope.locals[lhs] = lExprRef
 		lhsExpr[] = LHS(lExprRef, false)
-		@assert lExprRef[].dataType == rhsType
+		@assert lExprRef[].dataType == rhsType "$(lExprRef[].dataType) != $rhsType"
 		lExprRef[].undefined = false
 		setMutable!(lhsExpr[], true)
 	elseif found == false && location == nothing
