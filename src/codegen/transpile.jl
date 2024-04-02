@@ -112,7 +112,7 @@ end
 function transpile(scope::Scope, ifblock::IfBlock)
 	c = transpile(ifblock.scope, ifblock.cond)
 	block = map(x -> transpile(scope, x), ifblock.block)
-	return Expr(:if, c, quote $(block...) end)
+	return :(@escif $(Expr(:if, c, quote $(block...) end)))
 end
 
 function transpile(scope::Scope, funcblk::FuncBlock)
@@ -137,5 +137,6 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 		code.args, 
 		:(@compute @workgroupSize($(workgroupSize...)) $(fexpr))
 	)
+	@info (code |> MacroTools.striplines)
 	return code |> MacroTools.striplines
 end
