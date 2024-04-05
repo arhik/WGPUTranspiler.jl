@@ -140,3 +140,19 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	@info (code |> MacroTools.striplines)
 	return code |> MacroTools.striplines
 end
+
+
+function transpile(scope::Scope, atomicExpr::WGPUAtomics)
+	# TODO cover this for other atomics & better interface
+	if atomicExpr.expr isa BinaryExpr
+		op = atomicExpr.expr.op
+		lExpr = atomicExpr.expr.left
+		rExpr = atomicExpr.expr.right
+		if op == :+=
+			transpiledlExpr = (transpile(scope, lExpr))
+			transpiledrExpr = (transpile(scope, rExpr))
+			@infiltrate
+			return :(atomicAdd(@ptr($transpiledlExpr), @ptr($transpiledrExpr)))
+		end
+	end
+end

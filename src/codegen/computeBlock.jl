@@ -56,6 +56,8 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 	for wgslf in wgslfunctions
 	    scope.globals[wgslf] = makeVarPair(wgslf=>Function)
     end
+
+    scope.globals[:atomicAdd] = makeVarPair(:atomicAdd=>Function)
     
 	builtinArgs = [
 		:(@builtin(global_invocation_id, globalId::Vec3{UInt32})),
