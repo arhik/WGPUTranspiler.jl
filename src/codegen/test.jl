@@ -241,7 +241,7 @@ inferredExpr = inferExpr(
 	scope, 
 	:(for i in 0:1:12
 		println(i) 
-		a[i] = b[i]
+		a[10 % i] = b[i]
 		c[i] = d[i] + c[i] + 1.0
 	end)
 )
@@ -274,7 +274,7 @@ transpile(scope, inferredExpr)
 # -----
 scope = Scope(
 	Dict(
-		makeVarPair(:x=>Int32), 
+		#makeVarPair(:x=>Int32), 
 		makeVarPair(:a=>WgpuArray{Float32, 16}), 
 		makeVarPair(:b=>WgpuArray{Float32, 16}),
 		makeVarPair(:c=>WgpuArray{Float32, 16}),
@@ -287,7 +287,7 @@ scope = Scope(
 inferredExpr = inferExpr(
 	scope, 
 	:( for i in 1:10
-		if x > 0
+		if x == 0
 			println(i) 
 			a[i] = b[i]
 			c[i] = d[i] + c[i] + 1.0
