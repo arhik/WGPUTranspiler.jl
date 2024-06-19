@@ -432,3 +432,36 @@ inferredExpr = inferExpr(
 transpile(scope, inferredExpr)
 
 # ----------
+function cast_kernel(x::WgpuArray{T, N}, a::WgpuArray{S, N}) where {T, S, N}
+	xdim = workgroupDims.x
+	ydim = workgroupDims.y
+	gIdx = workgroupId.x*xdim + localId.x
+	gIdy = workgroupId.y*ydim + localId.y
+	gId = xDims.x*gIdy + gIdx
+	for i in 1:19
+		for j in 1:20
+			d = 10
+			if i > 10 && j > 10
+				a[i][j] = 1
+				d = d + 1
+			end
+		end
+	end
+end	
+
+
+a = WgpuArray(rand(Float32, 4, 4));
+b = WgpuArray(rand(Float32, 4, 4));
+
+scope = Scope(
+	Dict(
+		#makeVarPair(:a=>WgpuArray{Float32, 16}), 
+		#makeVarPair(:x=>WgpuArray{Float32, 16})
+	), Dict(), Dict(), 0, nothing, quote end)
+inferredExpr = inferExpr(
+	scope, 
+	:(@wgpukernel launch=true workgroupSizes=(4, 4) workgroupCount=(1, 1) shmem=() $cast_kernel($a, $b))
+)
+transpile(scope, inferredExpr)
+
+# ----------
