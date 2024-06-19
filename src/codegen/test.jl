@@ -335,7 +335,7 @@ scope = Scope(
 	Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
-	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
+	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) shmem=() $cast_kernel($a, $b))
 )
 transpile(scope, inferredExpr)
 
@@ -363,7 +363,7 @@ scope = Scope(
 
 inferredExpr = inferExpr(
 	scope, 
-	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
+	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) shmem=() $cast_kernel($a, $b))
 )
 
 transpile(scope, inferredExpr)
@@ -395,7 +395,7 @@ scope = Scope(
 	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
-	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
+	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) shmem=() $cast_kernel($a, $b))
 )
 transpile(scope, inferredExpr)
 
@@ -427,7 +427,7 @@ scope = Scope(
 	), Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
 	scope, 
-	:(@wgpukernel launch=true workgroupSize=(4, 4) workgroupCount=(1, 1) $cast_kernel($a, $b))
+	:(@wgpukernel launch=true workgroupSizes=(4, 4) workgroupCount=(1, 1) shmem=() $cast_kernel($a, $b))
 )
 transpile(scope, inferredExpr)
 

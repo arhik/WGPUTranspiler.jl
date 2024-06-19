@@ -51,8 +51,10 @@ function inferExpr(scope::Scope, expr::Expr)
 		return atomicExpr(scope, aExpr)
 	elseif 	@capture(expr, @wgpukernel islaunch_ workgroupSize_ workgroupCount_ function fname_(fargs__) where Targs__ fbody__ end)
 		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, fname, fargs, Targs, fbody)
-	elseif 	@capture(expr, @wgpukernel islaunch_ workgroupSize_ workgroupCount_ fname_(fargs__))
-		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, fname, fargs)
+	elseif 	@capture(expr, @wgpukernel islaunch_ workgroupSize_ workgroupCount_ shmem_ (fname_)(fargs__))
+		fexpr = @code_string(fname(fargs...)) |> Meta.parse |> MacroTools.striplines
+		#scope = Scope(Dict(), Dict(), Dict(), 0, nothing, quote end)    
+		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, shmem, fname, fargs, fexpr)
 	else
 		error("Couldn't capture $expr")
 	end
