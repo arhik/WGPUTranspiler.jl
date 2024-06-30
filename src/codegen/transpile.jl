@@ -1,9 +1,9 @@
-export transpile 
+export transpile
 
 transpile(scope::Scope, s::Scalar) = s.element
 transpile(scope::Scope, var::WGPUVariable) = begin
 	(found, location, rootScope) = findVar(scope, var.sym)
-	if location == :typeScope
+	if location == :typeVars
 		return :($(getDataTypeFrom(rootScope, location, var.sym)))
 	else
 		:($(var.sym))
@@ -34,7 +34,7 @@ function transpile(scope::Scope, a::AssignmentExpr)
 	rType = typeInfer(scope, a.rhs)
 	if typeof(a.lhs.expr) == DeclExpr
 		#(found, location, rootScope) = findVar(scope, symbol(a.lhs))
-		#if found && location != :typeScope
+		#if found && location != :typeVars
 		#	lExpr = rootScope.locals[symbol(a.lhs.expr)]
 		#	setMutable!(lExpr[], true)
 		#	setNew!(lExpr[], false)
@@ -90,14 +90,14 @@ function transpile(scope::Scope, acsExpr::AccessExpr)
 	return Expr(:., transpile(scope, acsExpr.sym), QuoteNode(transpile(scope, acsExpr.field)))
 end
 
-transpile(scope::Scope, declExpr::DeclExpr) = Expr(:(::), 
+transpile(scope::Scope, declExpr::DeclExpr) = Expr(:(::),
 	map(x -> transpile(scope, x), (declExpr.sym, declExpr.dataType))...
 )
 
 transpile(scope::Scope, ::Type{T}) where T = :($T)
 
 transpile(scope::Scope, typeExpr::TypeExpr) = Expr(
-	:curly, transpile(scope, typeExpr.sym), 
+	:curly, transpile(scope, typeExpr.sym),
 	map(x -> transpile(scope, x), typeExpr.types)...
 )
 
@@ -134,7 +134,7 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 	fexpr =	Expr(:function, Expr(:call, fn, bargs...), quote $(fb...) end)
 
 	push!(
-		code.args, 
+		code.args,
 		:(@compute @workgroupSize($(workgroupSize...)) $(fexpr))
 	)
 	@info (code |> MacroTools.striplines)
@@ -151,7 +151,6 @@ function transpile(scope::Scope, atomicExpr::WGPUAtomics)
 		if op == :+=
 			transpiledlExpr = (transpile(scope, lExpr))
 			transpiledrExpr = (transpile(scope, rExpr))
-			@infiltrate
 			return :(atomicAdd(@ptr($transpiledlExpr), @ptr($transpiledrExpr)))
 		end
 	end

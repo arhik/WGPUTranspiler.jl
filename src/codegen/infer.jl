@@ -53,7 +53,7 @@ function inferExpr(scope::Scope, expr::Expr)
 		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, fname, fargs, Targs, fbody)
 	elseif 	@capture(expr, @wgpukernel islaunch_ workgroupSize_ workgroupCount_ shmem_ (fname_)(fargs__))
 		fexpr = @code_string(fname(fargs...)) |> Meta.parse |> MacroTools.striplines
-		#scope = Scope(Dict(), Dict(), Dict(), 0, nothing, quote end)    
+		#scope = Scope(Dict(), Dict(), Dict(), 0, nothing, quote end)
 		return computeBlock(scope, islaunch, workgroupSize, workgroupCount, shmem, fname, fargs, fexpr)
 	else
 		error("Couldn't capture $expr")
@@ -66,15 +66,15 @@ function inferExpr(scope::Scope, a::Symbol)
 	var = Ref{WGPUVariable}()
 	if found == false
 		var[] = WGPUVariable(a, Any, Generic, nothing, false, true)
-		scope.globals[a] = var[]
-	elseif found == true && location == :globalScope
+		scope.newVars[a] = var
+	elseif found == true && location == :modulesym
 		var[] = rootScope.globals[a]
-		var[].undefined = true
-	elseif found == true && location == :typeScope
+		var[].undefined = false
+	elseif found == true && location == :typesym
 		var[] = rootScope.typeVars[a]
 		var[].undefined = false
-	else found == true && location == :localScope
-		var = rootScope.locals[a]
+	else found == true && location == :localsym
+		var = rootScope.localVars[a]
 		var[].undefined = false
 	end
 	return var
@@ -83,19 +83,13 @@ end
 function inferRange(scope, expr::Expr)
 	if @capture(expr, a_:b_)
 		start = inferExpr(scope, a)
-		inferScope!(scope, start)
 		stop = inferExpr(scope, b)
-		inferScope!(scope, stop)
 		step = inferExpr(scope, 1)
-		inferScope!(scope, step)
 		return RangeExpr(start, step, stop)
 	elseif @capture(expr, a_:b_:c_)
 		start = inferExpr(scope, a)
-		inferScope!(scope, start)
 		step = inferExpr(scope, b)
-		inferScope!(scope, step)
 		stop = inferExpr(scope, c)
-		inferScope!(scope, stop)
 		return RangeExpr(start, step, stop)
 	end
 end

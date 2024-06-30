@@ -2,9 +2,10 @@
 export Scope, getDataTypeFrom, getDataType, getGlobalScope, findVar
 
 struct Scope
-	locals::Dict{Symbol, Ref{WGPUVariable}}
-	globals::Dict{Symbol, WGPUVariable}
-	typeVars::Dict{Symbol, WGPUVariable}
+	localVars::Dict{Symbol, Ref{WGPUVariable}}
+	newVars::Dict{Symbol, Ref{WGPUVariable}}
+	moduleVars::Dict{Symbol, Ref{WGPUVariable}}
+	typeVars::Dict{Symbol, Ref{WGPUVariable}}
 	depth::Int
 	parent::Union{Nothing, Scope}
 	code::Expr
@@ -12,28 +13,38 @@ end
 
 # TODO scope should include wgslFunctions and other builtins by default
 
-Scope() = Scope(Dict(), Dict(), Dict(), 0, nothing, quote end)
+Scope() = Scope(Dict(), Dict(), Dict(), Dict(), 0, nothing, quote end)
+
+Scope(localVars::Dict, moduleVars::Dict, typeVars::Dict, depth::Int, parent::Union{Nothing, Scope}, code::Expr) = Scope(
+    localVars,
+    Dict(),
+    moduleVars,
+    typeVars,
+    depth,
+    parent,
+    code
+)
 
 function findVar(scope::Union{Nothing, Scope}, sym::Symbol)
 	if scope == nothing
 		return (false, nothing, scope)
 	end
-	localsyms=keys(scope.locals)
-	globalsyms=keys(scope.globals)
-	typesyms = keys(scope.typeVars)
+	localsyms  = keys(scope.localVars)
+	newsyms  = keys(scope.newVars)
+	modulesyms = keys(scope.moduleVars)
+	typesyms   = keys(scope.typeVars)
 	if (sym in localsyms)
-		return (true, :localScope, scope)
-	elseif (sym in globalsyms)
-		return (true, :globalScope, scope)
+		return (true, :localsym, scope)
+	elseif (sym in newsyms)
+		return (true, :newsym, scope)
+	elseif (sym in modulesyms)
+		return (true, :modulesym, scope)
 	elseif (sym in typesyms)
-		return (true, :typeScope, scope)
+		return (true, :typesym, scope)
 	end
 	return findVar(scope.parent, sym)
 end
 
-function inferScope!(scope, scalar::Scalar)
-	# Do nothing
-end
 
 function getGlobalScope(scope::Union{Nothing, Scope})
 	if scope == nothing
@@ -48,11 +59,13 @@ end
 function getDataTypeFrom(scope::Union{Nothing, Scope}, location, var::Symbol)
 	if scope == nothing
 		@error "Nothing scope cannot be searched for $var symbol"
-	elseif location == :localScope
-		return getindex(scope.locals[var]).dataType
-	elseif location == :globalScope
-		return scope.globals[var].dataType
-	elseif location == :typeScope
+	elseif location == :newsym
+	   return getindex(scope.newVars[var]).dataType
+	elseif location == :localsym
+		return getindex(scope.localVars[var]).dataType
+	elseif location == :modulesym
+		return scope.moduleVars[var].dataType
+	elseif location == :typesym
 		return scope.typeVars[var].dataType
 	end
 end
@@ -68,17 +81,17 @@ end
 
 
 function Base.isequal(scope::Scope, other::Scope)
-	length(scope.locals) == length(other.locals) &&
-	keys(scope.locals) == keys(other.locals) &&
-	length(scope.globals) == length(other.globals) &&
-	keys(scope.globals) == keys(other.globals) &&
+	length(scope.localVars) == length(other.localVars) &&
+	keys(scope.localVars) == keys(other.localVars) &&
+	length(scope.moduleVars) == length(other.moduleVars) &&
+	keys(scope.moduleVars) == keys(other.moduleVars) &&
 	for (key, value) in scope.locals
-		if !Base.isequal(other.locals[key][], value[])
+		if !Base.isequal(other.localVars[key][], value[])
 			return false
 		end
 	end
-	for (key, value) in scope.globals
-		if Base.isequal(other.globals[key][], value[])
+	for (key, value) in scope.moduleVars
+		if Base.isequal(other.moduleVars[key][], value[])
 			return false
 		end
 	end

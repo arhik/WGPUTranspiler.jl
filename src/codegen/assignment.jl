@@ -5,7 +5,6 @@ typeInfer(scope::Scope, var::WGPUVariable) = begin
 		return eval(symbol(var))
 	end
 	sym = symbol(var)
-	inferScope!(scope, var)
 	(found, location, rootScope) = findVar(scope, sym)
 	issamescope = rootScope.depth == scope.depth
 	# @assert issamescope "Not on same scope! What to do ?"
@@ -40,26 +39,6 @@ symbol(::Nothing) = nothing
 symbol(sym::Symbol) = sym
 symbol(::Scalar) = nothing
 
-function inferScope!(scope, lhs::LHS)
-	sym = symbol(lhs)
-	(found, location, rootScope) = findVar(scope, sym)
-	if found == true && location != :typeScope
-		setMutable!(lhs.expr, true)
-	end
-end
-
-function inferScope!(scope, var::WGPUVariable)
-	(found, _) = findVar(scope, var.sym)
-	@assert found == true "Variable $(var.sym) is not in local, global and type scope"
-end
-
-function inferScope!(scope, var::Ref{WGPUVariable})
-	if var[].dataType != Function
-		(found, _) = findVar(scope, var[].sym)
-		@assert found == true "Variable $(var.sym) is not in local, global and type scope"
-	end
-end
-
 typeInfer(scope::Scope, rhs::RHS) = typeInfer(scope, rhs.expr)
 typeInfer(scope::Scope, s::Scalar) = eltype(s)
 
@@ -76,22 +55,22 @@ function assignExpr(scope, lhs::Symbol, rhs::Number)
 	rhsType = typeInfer(scope, rhsExpr)
 	(lhsfound, lhslocation, lhsScope) = findVar(scope, lhs)
 	lhsExpr = Ref{LHS}()
-	if lhsfound && lhslocation == :localScope
-		lExpr = lhsScope.locals[lhs]
+	if lhsfound && lhslocation == :localsym
+		lExpr = lhsScope.localVars[lhs]
 		lhsExpr[] = LHS(lExpr, false)
 		rhsExpr = RHS(Scalar(rhs |> lExpr[].dataType))
 		setMutable!(lhsExpr[], true)
-	elseif lhsfound && lhslocation == :globalScope
-		lVar = lhsScope.globals[lhs]
+	elseif lhsfound && lhslocation == :moduleVars
+		lVar = lhsScope.moduleVars[lhs]
 		lVarRef = Ref{WGPUVariable}(lVar)
 		lVarRef[].dataType = rhsType
 		lhsExprp[] = LHS(lVarRef, false)
 		setMutable!(lhsExpr[], true)
 	elseif lhsfound == false
 		lvar = inferExpr(scope, lhs)
-		scope.globals[lhs] = lvar[]
+		scope.moduleVars[lhs] = lvar[]
 		lvar[].dataType = rhsType
-		scope.locals[lhs] = lvar
+		scope.localVars[lhs] = lvar
 		#lvar[].undefined = true
 		lhsExpr[] = LHS(lvar, true)
 		setMutable!(lhsExpr[], false)
@@ -109,20 +88,20 @@ function assignExpr(scope, lhs::Expr, rhs::Number)
 	(lhsfound, lhslocation, lhsScope) = findVar(scope, symbol(lExpr))
 	lhsExpr = Ref{LHS}()
 	if typeof(lExpr) == IndexExpr
-		if lhsfound && lhslocation == :localScope
-			lExpr = lhsScope.locals[lhs]
+		if lhsfound && lhslocation == :localsym
+			lExpr = lhsScope.localVars[lhs]
 			lhsExpr[] = LHS(lExpr, false)
 			rhsExpr = RHS(Scalar(rhs |> lExpr[].dataType))
 			setMutable!(lhsExpr[], true)
-		elseif lhsfound && lhslocation == :globalScope
-			lVar = lhsScope.globals[symbol(lExpr)]
+		elseif lhsfound && lhslocation == :moduleVars
+			lVar = lhsScope.moduleVars[symbol(lExpr)]
 			lVarRef = Ref{WGPUVariable}(lVar)
 			rhsExpr = RHS(Scalar(rhs |> eltype(lVar.dataType)))
 			lhsExpr[] = LHS(lExpr, false)
 			setMutable!(lhsExpr[], true)
 		elseif lhsfound == false
 			lvar = inferExpr(scope, lhs)
-			scope.globals[lhs] = lvar[]
+			scope.moduleVars[lhs] = lvar[]
 			lvar[].dataType = rhsType
 			lhsExpr[] = LHS(lvar, true)
 			setMutable!(lhsExpr[], false)
@@ -143,15 +122,15 @@ function assignExpr(scope, lhs::Symbol, rhs::Symbol)
 	rhsType = typeInfer(scope, rhsExpr)
 	(lhsfound, lhslocation, lhsScope) = findVar(scope, lhs)
 	lhsExpr = Ref{LHS}()
-	if lhsfound && lhslocation == :localScope
-		lExpr = lhsScope.locals[lhs]
+	if lhsfound && lhslocation == :localsym
+		lExpr = lhsScope.localVars[lhs]
 		lhsExpr[] = LHS(lExpr, false)
 		lExpr[].dataType = rhsType
 		setMutable!(lhsExpr[], true)
-	elseif lhsfound && lhslocation == :globalScope
-		lVar = lhsScope.globals[lhs]
+	elseif lhsfound && lhslocation == :moduleVars
+		lVar = lhsScope.moduleVars[lhs]
 		lVarRef = Ref{WGPUVariable}(lVar)
-		#scope.locals[lhs] = lVarRef
+		#scope.localVars[lhs] = lVarRef
 		lVarRef[].dataType = rhsType
 		lhsExpr[] = LHS(lVarRef, false)
 		setMutable!(lhsExpr[], true)
@@ -168,24 +147,24 @@ function assignExpr(scope, lhs::Symbol, rhs::Expr)
 	rhsType = typeInfer(scope, rhsExpr)
 	(found, location, rootScope) = findVar(scope, lhs)
 	lhsExpr = Ref{LHS}()
-	if found && location == :localScope
-		lExpr = rootScope.locals[lhs]
+	if found && location == :localsym
+		lExpr = rootScope.localVars[lhs]
 		lhsExpr[] = LHS(lExpr, false)
 		@assert lExpr[].dataType == rhsType "$(lExpr[].dataType) != $rhsType"
 		lExpr[].undefined = false
 		setMutable!(lhsExpr[], true)
-	elseif found && location == :globalScope
-		lExpr = rootScope.globals[lhs]
+	elseif found && location == :modulesym
+		lExpr = rootScope.moduleVars[lhs]
 		lExprRef = Ref{WGPUVariable}(lExpr)
-		rootScope.locals[lhs] = lExprRef
+		rootScope.localVars[lhs] = lExprRef
 		lhsExpr[] = LHS(lExprRef, false)
 		@assert lExprRef[].dataType == rhsType "$(lExprRef[].dataType) != $rhsType"
 		lExprRef[].undefined = false
 		setMutable!(lhsExpr[], true)
-	elseif found == false && location == nothing
+	elseif found == true && location == :newsym
 		# new var
 		lvar = inferExpr(scope, lhs)
-		scope.globals[lhs] = lvar[]
+		scope.moduleVars[lhs] = lvar[]
 		lvar[].dataType = rhsType
 		lvar[].undefined = true
 		lhsExpr[] = LHS(lvar, true)
@@ -200,14 +179,18 @@ end
 function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
 	lExpr = inferExpr(scope, lhs)
 	rhsExpr = RHS(inferExpr(scope, rhs))
-	inferScope!(scope, rhsExpr.expr)
+	for rsym in symbol(rhsExpr)
+	   (found, location, rootScope) = findVar(scope, rsym)
+		# TODO this should be ScopeError
+	    @assert location != :newsym "RHS variable $rsym should be in scope."
+	end
 	rhsType = typeInfer(scope, rhsExpr)
 	lhsExpr = Ref{LHS}()
 	if typeof(lExpr) == IndexExpr
 		(found, location, rootScope) = findVar(scope, symbol(lExpr))
-		if found && location != :typeScope
-			lvar = location == :localScope ? rootScope.locals[symbol(lExpr)] : rootScope.globals[symbol(lExpr)]
-			#lvar = rootScope.locals[symbol(lExpr)]
+		if found && location != :typeVars
+			lvar = location == :localsym ? rootScope.localVars[symbol(lExpr)] : rootScope.moduleVars[symbol(lExpr)]
+			#lvar = rootScope.localVars[symbol(lExpr)]
 			lhsExpr[]  = LHS(lExpr, false)
 			lhsType = typeInfer(scope, lhsExpr[])
 			@assert lhsType == rhsType "$lhsType != $rhsType"
@@ -217,19 +200,21 @@ function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
 		end
 	elseif typeof(lExpr) == AccessExpr
 		(found, location, rootScope) = findVar(scope, symbol(lExpr))
-		if found && location !=:typeScope
-			lExpr = rootScope.locals[symbol(lExpr)]
+		if found && location !=:typeVars
+			lExpr = rootScope.localVars[symbol(lExpr)]
 			lhsExpr[] = LHS(lExpr[], false)
 			setMutable!(lhsExpr[], true)
 		else found == false
 			error("LHS var $(symbol(lhs)) has to be mutable for `getproperty`")
 		end
 	elseif typeof(lExpr) == DeclExpr
-		(found, location, rootScope) = findVar(scope, symbol(lExpr))
-		if found && location ==:globalScope && location != :localScope
+	   lsym = symbol(lExpr)
+		(found, location, rootScope) = findVar(scope, lsym)
+		if found && location ==:newsym
 			lhsExpr[] = LHS(lExpr, true)
-			scope.locals[symbol(lExpr)] = scope.globals[symbol(lExpr)]
-		elseif found && location ==:localScope
+			scope.localVars[lsym] = scope.newVars[lsym]
+			delete!(scope.newVars, lsym)
+		elseif found && location ==:localsym
 			if rootScope.depth == scope.depth
 				error("Duplication definition is not allowed")
 			else
@@ -244,5 +229,3 @@ function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
 	statement = AssignmentExpr(lhsExpr[], rhsExpr, scope)
 	return statement
 end
-
-

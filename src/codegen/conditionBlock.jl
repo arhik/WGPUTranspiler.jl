@@ -11,7 +11,6 @@ end
 function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
 	childScope = Scope(Dict(), Dict(), Dict(), scope.depth + 1, scope, :())
 	condExpr = inferExpr(scope, cond)
-	inferScope!(scope, condExpr)
 	exprArray = JLExpr[]
 	for jlexpr in block
 		push!(exprArray, inferExpr(childScope, jlexpr))

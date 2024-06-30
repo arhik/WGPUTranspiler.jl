@@ -4,13 +4,15 @@ using WGPUTranspiler
 using WGPUTranspiler: WorkGroupDims, Generic, WGPUVariable
 using CodeTracking
 using Chairmarks
+using Test
+using MacroTools
 
 makeVarPair(p::Pair{Symbol, DataType}) = p.first => WGPUVariable(
 	p.first, p.second, Generic, nothing, false, true
 )
 
 # ------
-
+# Let Var test
 scope = Scope(
 	Dict(
 		makeVarPair(:b=>Int32),
@@ -21,7 +23,15 @@ scope = Scope(
 
 aExpr = inferExpr(scope, :(a::Int32 = b + c))
 #bExpr = inferExpr(scope, :(a::Int32 = b + c))
-transpile(scope, aExpr)
+t = (transpile(scope, aExpr) |> MacroTools.striplines)
+@testset "Let Var test" begin
+	tcap = @capture(t, @let r_::s_ = x_ + y_)
+	@test tcap == true
+	@test x == :b
+	@test y == :c
+	@test r == :a
+	@test s == Int32
+end
 
 # ------
 scope = Scope(
@@ -34,8 +44,18 @@ scope = Scope(
 
 aExpr = inferExpr(scope, :(a::Int32 = b + c))
 bExpr = inferExpr(scope, :(a = b + c))
-transpile(scope, aExpr)
-transpile(scope, bExpr)
+t = transpile(scope, aExpr)
+s = transpile(scope, bExpr)
+@testset "@var test" begin
+	tcap = @capture(t, @var r_::S_ = x_ + y_)
+	@test tcap == true
+	@test S == Int32
+	@test x == :b
+	@test y == :c
+	@test r == :a
+	scap = @capture(s, w_ = e_ + f_)
+	@test scap == true
+end
 
 # ------
 
@@ -441,7 +461,7 @@ function cast_kernel(x::WgpuArray{T, N}, a::WgpuArray{S, N}) where {T, S, N}
 	for i in 1:19
 		for j in 1:20
 			d = 10
-			if i > 10 && j > 10
+			if i > 10
 				a[i][j] = 1
 				d = d + 1
 			end
