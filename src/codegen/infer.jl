@@ -78,6 +78,8 @@ function inferExpr(scope::Scope, a::Symbol)
 		var[].undefined = false
 	elseif found == true && location == :newsym
 	    var = rootScope.newVars[a]
+		scope.localVars[a] = var
+		delete!(scope.newVars, a)
 		var[].undefined = false
 	end
 	return var
