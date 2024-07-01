@@ -4,6 +4,7 @@ function typeInfer(scope::Scope, var::WGPUVariable)
     sym = symbols(var)
     @assert length(sym) == 1 "WGPUVariable should be a holder of single variable"
     varsym = pop!(sym)
+    @infiltrate
 	(found, location, rootScope) = findVar(scope, varsym)
 	issamescope = rootScope.depth == scope.depth
 	# @assert issamescope "Not on same scope! What to do ?"
@@ -94,18 +95,18 @@ function assignExpr(scope, lhs::Expr, rhs::Number)
 	lExpr = inferExpr(scope, lhs)
 	rhsExpr = RHS(Scalar(rhs))
 	rhsType = typeInfer(scope, rhsExpr)
-	(lhsfound, lhslocation, lhsScope) = findVar(scope, symbols(lExpr))
+	(lhsfound, lhslocation, lhsScope) = findVar(scope, symbols(lExpr) |> pop!)
 	lhsExpr = Ref{LHS}()
 	if typeof(lExpr) == IndexExpr
 		if lhsfound && lhslocation == :localsym
-			lExpr = lhsScope.localVars[lhs]
+			lvar = lhsScope.localVars[lExpr |> symbols |> pop!]
 			lhsExpr[] = LHS(lExpr, false)
-			rhsExpr = RHS(Scalar(rhs |> lExpr[].dataType))
+			#rhsExpr = RHS(Scalar(rhs |> lExpr[].dataType))
 			setMutable!(lhsExpr[], true)
 		elseif lhsfound && lhslocation == :moduleVars
-			lVar = lhsScope.moduleVars[symbols(lExpr)]
+			lVar = lhsScope.moduleVars[symbols(lExpr) |> pop!]
 			lVarRef = Ref{WGPUVariable}(lVar)
-			rhsExpr = RHS(Scalar(rhs |> eltype(lVar.dataType)))
+			#rhsExpr = RHS(Scalar(rhs |> eltype(lVar.dataType)))
 			lhsExpr[] = LHS(lExpr, false)
 			setMutable!(lhsExpr[], true)
 		elseif lhsfound == false
@@ -172,9 +173,9 @@ function assignExpr(scope, lhs::Symbol, rhs::Expr)
 	for rsym in rsyms
 	   (found, location, rootScope) = findVar(scope, rsym)
 		# TODO this should be ScopeError
-	    @assert location != :newsym "RHS variable $rsym should be in scope."
+	    @assert (location in (nothing, :newsym)) == false "RHS variable $rsym should be in scope."
 	end
-	@infiltrate
+	lExpr = inferExpr(scope, lhs)
 	(found, location, rootScope) = findVar(scope, lhs)
 	lhsExpr = Ref{LHS}()
 	if found && location == :localsym
@@ -193,20 +194,16 @@ function assignExpr(scope, lhs::Symbol, rhs::Expr)
 		setMutable!(lhsExpr[], true)
 	elseif found == true && location == :newsym
 		# new var
-		@infiltrate
+		# @infiltrate
 		lvar = scope.newVars[lhs]
 		lvar[].dataType = rhsType
 		lvar[].undefined = false
-		lhsExpr[] = LHS(lvar, false)
-		setMutable!(lhsExpr[], true)
+		lhsExpr[] = LHS(lvar, true)
+		scope.localVars[lhs] = lvar
+		setMutable!(lhsExpr[], false)
 		delete!(scope.newVars, lhs)
     elseif found == false
-        @infiltrate
-        lvar = inferExpr(scope, lhs)
-        lhsExpr[] = LHS(lvar, true)
-        scope.newVars[lhs] = lvar
-        lvar[].dataType = rhsType
-        lvar[].undefined = false
+        error("This state shouldn't have been reached.")
     else
 		error("Not captured this case yet!!!!")
 	end
@@ -215,15 +212,15 @@ function assignExpr(scope, lhs::Symbol, rhs::Expr)
 end
 
 function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
-	lExpr = inferExpr(scope, lhs)
 	rhsExpr = RHS(inferExpr(scope, rhs))
 	rsyms = symbols(Set(), rhsExpr)
    	for rsym in rsyms
 	   (found, location, rootScope) = findVar(scope, rsym)
   		# TODO this should be ScopeError
-   	    @assert (location in [nothing, :newsym]) == false "RHS variable $rsym should be in scope."
+   	    @assert (location in (nothing, :newsym)) == false "RHS variable $rsym should be in scope."
    	end
 	rhsType = typeInfer(scope, rhsExpr)
+	lExpr = inferExpr(scope, lhs)
 	lhsExpr = Ref{LHS}()
 	if typeof(lExpr) == IndexExpr
 		(found, location, rootScope) = findVar(scope, symbols(lExpr) |> pop!)

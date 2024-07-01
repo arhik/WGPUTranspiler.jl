@@ -57,6 +57,18 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 	    scope.moduleVars[wgslf] = makeVarPair(wgslf=>Function)
     end
 
+    # Put some builtins
+    dataTypes = [:Float32, :UInt32, :Int32, :Bool]
+    for dtype in dataTypes
+        scope.moduleVars[dtype] = makeVarPair(dtype=>Function)
+    end
+
+    # Put common ops in module scope
+    ops = [:(+), :(-), :(*), :(/)]
+    for op in ops
+       scope.moduleVars[op] = makeVarPair(op=>Function)
+    end
+
     scope.moduleVars[:atomicAdd] = makeVarPair(:atomicAdd=>Function)
 
 	builtinArgs = [
@@ -72,14 +84,14 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 			if getkey(scope.typeVars, T, nothing) == nothing
 				scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
 			else
-				v = getindex(scope.typeVars, T)
+				v = getindex(scope.typeVars[T])
 				@assert v.dataType == eltype(inArg) "type parameter $T has conflicting types"
 			end
 			if getkey(scope.typeVars, N, nothing) == nothing
 				scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
 			else
-				v = getindex(scope.typeVars, N)
-				@assert v[].dataType == Val{ndims(inArg)} "type parameter $T has conflicting types"
+				v = getindex(scope.typeVars[N])
+				@assert v.dataType == Val{ndims(inArg)} "type parameter $T has conflicting types"
 			end
 		end
 	end
@@ -94,7 +106,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 			elseif getkey(scope.typeVars, ioType, nothing) == nothing
 				#scope.moduleVars[iovar] = makeVarPair(iovar=>eval(ioType))
 			else
-				v = getindex(scope.typeVars, ioType)
+				v = getindex(scope.typeVars[ioType])
 				@assert v.dataType == eltype(inArg)
 			end
 		end
@@ -162,8 +174,14 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 		scope.moduleVars[symbolarg] = makeVarPair(symbolarg=>inType)
 	end
 
-	@infiltrate
+	# Infer Function Name but promote to module var
 	fn = inferExpr(scope, fname)
+	scope.moduleVars[fname] = fn
+	delete!(scope.newVars, fname)
+	# TODO fname should be module scope var
+
+	# repeat it twice to promote args to local
+	fa = map(_x -> inferExpr(scope, _x), fargs)
 	fa = map(_x -> inferExpr(scope, _x), fargs)
 	# make fargs to storage read write
 	bindingCount = 0
@@ -176,7 +194,6 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 		(arg.sym[]).varAttr = WGPUVariableAttribute(0, bindingCount)
 		bindingCount += 1
 	end
-	@infiltrate
 	fb = map(x -> inferExpr(scope, x), fbody)
 	ta = map(x -> inferExpr(scope, x), Targs)
 	return ComputeBlock(fn, fa, ta, fb, scope, workgroupSize, workgroupCount, builtinArgs)

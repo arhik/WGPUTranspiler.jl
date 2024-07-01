@@ -65,6 +65,7 @@ end
 
 scope = Scope(
 	Dict(
+		makeVarPair(:(+)=>Function),
 		makeVarPair(:b=>Int32),
 		makeVarPair(:c=>Int32),
 	),
@@ -93,6 +94,7 @@ end
 
 scope = Scope(
 	Dict(
+		makeVarPair(:(+)=>Int32),
 		makeVarPair(:b=>Int32),
 		makeVarPair(:c=>Int32),
 	),
@@ -110,6 +112,7 @@ transpile(scope, bExpr)
 
 scope = Scope(
 	Dict(
+		makeVarPair(:(+)=>Function),
 		makeVarPair(:b=>Int32),
 		makeVarPair(:c=>Int32),
 	),
@@ -367,6 +370,8 @@ b = WgpuArray(rand(Float32, 4, 4));
 
 scope = Scope(
 	Dict(
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:(*)=>Function),
 	), 
 	Dict(), Dict(), 0, nothing, quote end)
 inferredExpr = inferExpr(
@@ -446,7 +451,7 @@ function cast_kernel(x::WgpuArray{T, N}, a::WgpuArray{S, N}) where {T, S, N}
 	for i in 1:19
 		for j in 1:20
 			d = 10
-			a[i][j] = 1
+			a[i][j] = Float32(xdim)
 			d = d + 1
 		end
 	end

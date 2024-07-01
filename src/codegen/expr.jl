@@ -68,8 +68,8 @@ function typeInfer(scope::Scope, cExpr::CallExpr)
 	(found, location, rootScope) = findVar(scope, symbols(cExpr.func) |> pop!)
 	if found && location == :typesym
 		tVar = rootScope.typeVars[cExpr.func |> symbols |> pop!]
-		if tVar.dataType <: Number
-			return tVar.dataType
+		if tVar[].dataType <: Number
+			return tVar[].dataType
 		end
 	end
 	typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
@@ -174,7 +174,7 @@ function declExpr(scope, a::Symbol, b::Symbol)
 	end
 	(found, location, rootScope) = findVar(scope, b)
 	if found && location == :typesym
-		b = rootScope.typeVars[b].dataType
+		b = rootScope.typeVars[b][].dataType
 	end
 	aExpr = inferExpr(scope, a)
 	bExpr = Base.eval(b)
