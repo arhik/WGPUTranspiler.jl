@@ -64,9 +64,9 @@ function getDataTypeFrom(scope::Union{Nothing, Scope}, location, var::Symbol)
 	elseif location == :localsym
 		return getindex(scope.localVars[var]).dataType
 	elseif location == :modulesym
-		return scope.moduleVars[var].dataType
+		return getindex(scope.moduleVars[var]).dataType
 	elseif location == :typesym
-		return scope.typeVars[var].dataType
+		return getindex(scope.typeVars[var]).dataType
 	end
 end
 
@@ -85,7 +85,7 @@ function Base.isequal(scope::Scope, other::Scope)
 	keys(scope.localVars) == keys(other.localVars) &&
 	length(scope.moduleVars) == length(other.moduleVars) &&
 	keys(scope.moduleVars) == keys(other.moduleVars) &&
-	for (key, value) in scope.locals
+	for (key, value) in scope.localVars
 		if !Base.isequal(other.localVars[key][], value[])
 			return false
 		end

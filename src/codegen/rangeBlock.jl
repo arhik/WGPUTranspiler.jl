@@ -23,19 +23,22 @@ function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
 	rangeExpr = inferRange(childScope, range)
 	startExpr = rangeExpr.start
 	if typeof(startExpr) == Ref{WGPUVariable}
-		childScope.globals[symbol(startExpr)] = startExpr[].sym
+		childScope.moduleVars[symbols(startExpr) |> pop!] = startExpr[].sym
 	end
   	stopExpr =  rangeExpr.stop
 	if typeof(stopExpr) == Ref{WGPUVariable}
-		childScope.globals[symbol(stopExpr)] = stopExpr[].sym
+		childScope.moduleVars[symbols(stopExpr) |> pop!] = stopExpr[].sym
 	end
 	stepExpr = rangeExpr.step
 	if typeof(stepExpr) == Ref{WGPUVariable}
-		childScope.globals[symbol(stepExpr)] = stepExpr[].sym
+		childScope.moduleVars[symbols(stepExpr) |> pop!] = stepExpr[].sym
 	end
 	idxExpr = inferExpr(childScope, :($idx::UInt32))
+	# TMPFIX_BEGIN
 	setMutable!(idxExpr, true)
-	scope.globals[idx] = idxExpr.sym[]
+	childScope.localVars[idx] = idxExpr.sym[]
+	delete!(childScope.newVars, idx)
+	# TMPFIX_END
 	exprArray = JLExpr[]
 	for stmnt in block
 		push!(exprArray, inferExpr(childScope, stmnt))

@@ -15,6 +15,7 @@ makeVarPair(p::Pair{Symbol, DataType}) = p.first => WGPUVariable(
 # Let Var test
 scope = Scope(
 	Dict(
+		makeVarPair(:(+)=>Function),
 		makeVarPair(:b=>Int32),
 		makeVarPair(:c=>Int32),
 	),
@@ -31,11 +32,13 @@ t = (transpile(scope, aExpr) |> MacroTools.striplines)
 	@test y == :c
 	@test r == :a
 	@test s == Int32
+	@test length(scope.newVars) == 0
 end
 
 # ------
 scope = Scope(
 	Dict(
+		makeVarPair(:(+)=>Function),
 		makeVarPair(:b=>Int32),
 		makeVarPair(:c=>Int32),
 	),
@@ -53,6 +56,7 @@ s = transpile(scope, bExpr)
 	@test x == :b
 	@test y == :c
 	@test r == :a
+	@test length(scope.newVars) == 0
 	scap = @capture(s, w_ = e_ + f_)
 	@test scap == true
 end
@@ -70,8 +74,20 @@ scope = Scope(
 aExpr = inferExpr(scope, :(a = b + c))
 vExpr = inferExpr(scope, :(a = b + c))
 
-transpile(scope, aExpr)
-transpile(scope, vExpr)
+t = transpile(scope, aExpr)
+s = transpile(scope, vExpr)
+
+@testset "@var nodecl test" begin
+	tcap = @capture(t, @var r_ = x_ + y_)
+	@test tcap == true
+	@test x == :b
+	@test y == :c
+	@test r == :a
+	scap = @capture(s, w_ = e_ + f_)
+	@test scap == true
+	@test length(scope.newVars) == 0
+end
+
 
 # ------
 
@@ -87,6 +103,8 @@ aExpr = inferExpr(scope, :(a = b + c))
 bExpr = inferExpr(scope, :(a = c))
 transpile(scope, aExpr)
 transpile(scope, bExpr)
+
+# TODO tests
 
 # ------
 
@@ -114,8 +132,8 @@ scope = Scope(
 	Dict(),	Dict(), 0, nothing, quote end
 )
 
-aExpr = inferExpr(scope, :(a::Int32 = workgroupDims.x))
-transpile(scope, aExpr)
+@test_throws AssertionError aExpr = inferExpr(scope, :(a::Int32 = workgroupDims.x))
+# transpile(scope, aExpr)
 
 # ----
 scope = Scope(
@@ -150,8 +168,8 @@ scope = Scope(
 	Dict(),
 	Dict(), 0, nothing, quote end
 )
-cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(a + b + c) + g(2, 3, c)))
-transpile(scope, cExpr)
+# TODO ScopeError
+@test_throws KeyError inferExpr(scope, :(a::Int32 = g(a + b + c) + g(2, 3, c)))
 
 # This should fail too datatypes are different
 scope = Scope(
@@ -164,8 +182,7 @@ scope = Scope(
 	Dict(),
 	Dict(), 0, nothing, quote end
 )
-cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2, 3, c)))
-transpile(scope, cExpr)
+@test_throws AssertionError cExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2, 3, c)))
 
 # ------
 # This should fail too 
@@ -180,8 +197,7 @@ scope = Scope(
 	Dict(), 0, nothing, quote end
 )
 
-cExpr = inferredExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2.0, 3, c)))
-transpile(scope, cExpr)
+@test_throws AssertionError cExpr = inferExpr(scope, :(a::Int32 = g(b + c) + g(2.0, 3, c)))
 
 # ------
 scope = Scope(

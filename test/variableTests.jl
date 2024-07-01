@@ -13,7 +13,7 @@ makeVarPair(p::Pair{Symbol, DataType}; islocal=false) = begin
 			false, 	  # mutable
 			false,    # new
 			true	  # undefined
-		)) 
+		))
 	else
 		return (p.first => Ref{WGPUVariable}(WGPUVariable(
 		p.first, # sym
@@ -25,7 +25,7 @@ makeVarPair(p::Pair{Symbol, DataType}; islocal=false) = begin
 		true	  # undefined
 	)))
 	end
-end	
+end
 
 @testset "WGPUVariable Test" begin
 	scope = Scope(
@@ -41,10 +41,10 @@ end
 	)
 	scopeCopy = deepcopy(scope)
 	aExpr = inferExpr(scope, :(b))
-	@test scope.globals == Dict()
+	@test scope.moduleVars == Dict()
 	@test Base.isequal(scope, scopeCopy)
 	#@test (aExpr[]).dataType == Int32
-	@test isequal(aExpr, scope.locals[:b])
+	@test isequal(aExpr, scope.localVars[:b])
 end
 
 @testset "WGPUVariable Test" begin
@@ -62,8 +62,8 @@ end
 	scopeCopy = deepcopy(scope)
 	aExpr = inferExpr(scope, :(a))
 	@test aExpr[].undefined == true
-	@test !(scope.globals == Dict())
+	@test !(scope.moduleVars == Dict())
 	@test !Base.isequal(scope, scopeCopy)
 	@test (aExpr[]).dataType == Any
-	@test isequal(aExpr, scope.locals[:a])
+	@test isequal(aExpr, scope.localVars[:a])
 end

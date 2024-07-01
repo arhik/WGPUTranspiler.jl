@@ -3,7 +3,7 @@ export transpile
 transpile(scope::Scope, s::Scalar) = s.element
 transpile(scope::Scope, var::WGPUVariable) = begin
 	(found, location, rootScope) = findVar(scope, var.sym)
-	if location == :typeVars
+	if location == :typesym
 		return :($(getDataTypeFrom(rootScope, location, var.sym)))
 	else
 		:($(var.sym))
@@ -33,9 +33,9 @@ function transpile(scope::Scope, a::AssignmentExpr)
 	rExpr = transpile(scope, a.rhs)
 	rType = typeInfer(scope, a.rhs)
 	if typeof(a.lhs.expr) == DeclExpr
-		#(found, location, rootScope) = findVar(scope, symbol(a.lhs))
-		#if found && location != :typeVars
-		#	lExpr = rootScope.locals[symbol(a.lhs.expr)]
+		#(found, location, rootScope) = findVar(scope, symbols(a.lhs))
+		#if found && location != :typesym
+		#	lExpr = rootScope.localVars[symbols(a.lhs.expr)]
 		#	setMutable!(lExpr[], true)
 		#	setNew!(lExpr[], false)
 		#end
@@ -45,9 +45,9 @@ function transpile(scope::Scope, a::AssignmentExpr)
 			return :(@let $lExpr = $rExpr)
 		end
 	elseif typeof(a.lhs.expr) == Base.RefValue{WGPUVariable}
-		#(found, locations, rootScope) = findVar(scope, symbol(a.lhs))
+		#(found, locations, rootScope) = findVar(scope, symbols(a.lhs))
 		#if found == false
-		#	scope.locals[symbol(a.lhs)] = a.lhs.expr
+		#	scope.localVars[symbols(a.lhs)] = a.lhs.expr
 		#	setNew!(a.lhs.expr[], true)
 		#	setMutable!(a.lhs.expr[], false)
 		#elseif found == true
@@ -55,7 +55,7 @@ function transpile(scope::Scope, a::AssignmentExpr)
 		#	setMutable!(a.lhs.expr[], true)
 		#end
 		##if a.lhs.expr[].undefined == true
-		#	scope.locals[symbol(a.lhs)] = a.lhs.expr
+		#	scope.localVars[symbols(a.lhs)] = a.lhs.expr
 		#end
 		if isNew(a.lhs)
 			return (isMutable(a.lhs) ? :(@var $lExpr = $rExpr) : :(@let $lExpr = $rExpr))

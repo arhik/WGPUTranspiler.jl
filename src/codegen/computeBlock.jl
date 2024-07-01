@@ -43,22 +43,22 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
     if workgroupCount |> length < 3
     	workgroupCount = (workgroupCount..., repeat([1,], inner=(3 - length(workgroupCount)))...)
     end
-    push!(scope.code.args, quote 
+    push!(scope.code.args, quote
 			@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
     	end
     )
     # TODO include these only based on `symbols(funcblock)``
-    scope.globals[:workgroupDims] = makeVarPair(:workgroupDims => WorkGroupDims)
-    scope.globals[:workgroupId] = makeVarPair(:workgroupId=>WorkGroupId)
-    scope.globals[:localId] = makeVarPair(:localId=>LocalInvocationId)
-    scope.globals[:globalId] = makeVarPair(:globalId=>GlobalInvocationId)
-	
+    scope.moduleVars[:workgroupDims] = makeVarPair(:workgroupDims => WorkGroupDims)
+    scope.moduleVars[:workgroupId] = makeVarPair(:workgroupId=>WorkGroupId)
+    scope.moduleVars[:localId] = makeVarPair(:localId=>LocalInvocationId)
+    scope.moduleVars[:globalId] = makeVarPair(:globalId=>GlobalInvocationId)
+
 	for wgslf in wgslfunctions
-	    scope.globals[wgslf] = makeVarPair(wgslf=>Function)
+	    scope.moduleVars[wgslf] = makeVarPair(wgslf=>Function)
     end
 
-    scope.globals[:atomicAdd] = makeVarPair(:atomicAdd=>Function)
-    
+    scope.moduleVars[:atomicAdd] = makeVarPair(:atomicAdd=>Function)
+
 	builtinArgs = [
 		:(@builtin(global_invocation_id, globalId::Vec3{UInt32})),
 		:(@builtin(local_invocation_id, localId::Vec3{UInt32})),
@@ -66,7 +66,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 		:(@builtin(workgroup_id, workgroupId::Vec3{UInt32})),
 	]
 
-	# First consider only typeVars
+	# First consider only typesym
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
 		if @capture(symbolArg, iovar_::ioType_{T_, N_})
 			if getkey(scope.typeVars, T, nothing) == nothing
@@ -79,27 +79,27 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 				scope.typeVars[N] = makeVarPair(N=>Val{ndims(inArg)})
 			else
 				v = getindex(scope.typeVars, N)
-				@assert v.dataType == Val{ndims(inArg)} "type parameter $T has conflicting types"
+				@assert v[].dataType == Val{ndims(inArg)} "type parameter $T has conflicting types"
 			end
 		end
 	end
-	
+
 	# Second consider other variables
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
 		if @capture(symbolArg, iovar_::ioType_{T_, N_})
-			# do nothing	
+			# do nothing
 		elseif @capture(symbolArg, iovar_::ioType_)
 			if ioType == :Function
 				scope.typeVars[iovar] = makeVarPair(nameof(inArg)=>Val{nameof(inArg)})
 			elseif getkey(scope.typeVars, ioType, nothing) == nothing
-				#scope.globals[iovar] = makeVarPair(iovar=>eval(ioType))
+				#scope.moduleVars[iovar] = makeVarPair(iovar=>eval(ioType))
 			else
 				v = getindex(scope.typeVars, ioType)
 				@assert v.dataType == eltype(inArg)
 			end
 		end
 	end
-	
+
 	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
 		if @capture(symbolarg, iovar_::ioType_{T_, N_})
 			# TODO instead of assert we should branch for each case of argument
@@ -115,20 +115,20 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 						@const $dimsVar = Vec3{UInt32}($(UInt32.(dims)...))
 					end
 				)
-				scope.globals[dimsVar] = makeVarPair(dimsVar=>WArrayDims)
+				scope.moduleVars[dimsVar] = makeVarPair(dimsVar=>WArrayDims)
 			end
 		elseif @capture(symbolarg, iovar_::ioType_)
 			if eltype(inarg) <: Number
 				push!(
-					scope.code.args, 
+					scope.code.args,
 					quote
 						@const $iovar::$(eltype(inarg)) = $(Meta.parse((wgslType(inarg))))
 					end
 				)
 			elseif typeof(inarg) <: Function
-				#scope.globals[iovar] = makeVarPair(iovar=>typeof(inarg))
+				#scope.moduleVars[iovar] = makeVarPair(iovar=>typeof(inarg))
 			else
-				scope.globals[iovar] = makeVarPair(iovar=>Val{iovar})
+				scope.moduleVars[iovar] = makeVarPair(iovar=>Val{iovar})
 			end
 		end
 	end
@@ -145,12 +145,12 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 				end
 			)
 			bindingCount += 1
-			# scope.globals[iovar] = iovar
+			# scope.moduleVars[iovar] = iovar
 		end
 	end
 
 	shmem = Base.eval(shmem)
-	
+
 	for (idx, (symbolarg, (inType, inSize))) in enumerate(shmem)
 		arrayLen = reduce(*, inSize)
 		push!(
@@ -159,10 +159,10 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 				@var WorkGroup $symbolarg::Array{$(inType), $(arrayLen)}
 			end
 		)
-		scope.globals[symbolarg] = makeVarPair(symbolarg=>inType)
+		scope.moduleVars[symbolarg] = makeVarPair(symbolarg=>inType)
 	end
 
-
+	@infiltrate
 	fn = inferExpr(scope, fname)
 	fa = map(_x -> inferExpr(scope, _x), fargs)
 	# make fargs to storage read write
@@ -176,9 +176,8 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 		(arg.sym[]).varAttr = WGPUVariableAttribute(0, bindingCount)
 		bindingCount += 1
 	end
+	@infiltrate
 	fb = map(x -> inferExpr(scope, x), fbody)
 	ta = map(x -> inferExpr(scope, x), Targs)
 	return ComputeBlock(fn, fa, ta, fb, scope, workgroupSize, workgroupCount, builtinArgs)
 end
-
-

@@ -18,10 +18,17 @@ end
 
 typeInfer(scope::Scope, binOp::BinaryExpr) = typeintersect(typeInfer(scope, binOp.left), typeInfer(scope, binOp.right))
 
-function symbol(binOp::BinaryExpr)
-	syms = map(symbol, (binOp.left[], binOp.right[]))
+function symbols(binOp::BinaryExpr)
+    syms = union(Set(), Set((binOp.op,)), map(symbols, (binOp.left, binOp.right))...)
 	return syms
 end
+
+symbols(s::Set, binOp::BinaryExpr) = union(
+        s,
+        symbols(Set(), binOp.op),
+        symbols(Set(), binOp.left),
+        symbols(Set(), binOp.right)
+)
 
 # CallExpression
 struct CallExpr <: JLExpr
@@ -39,19 +46,28 @@ function callExpr(scope::Scope, f::Union{Symbol, Expr}, args::Vector{Any})
 	return CallExpr(func, arguments)
 end
 
-symbol(a::Vector{T}) where T <: Union{WGPUVariable, Scalar, JLExpr} = (map(symbol, a))
-symbol(callexpr::CallExpr) = begin
-	symbol(callexpr.func)
+function symbols(a::Vector{T}) where T <: Union{Ref{WGPUVariable}, Scalar, JLExpr}
+    syms = union(Set(), map(symbols, a))
+    return syms
 end
 
-typeInfer(scope::Scope, cExpr::CallExpr) = begin
+symbols(s::Set, a::Vector{T}) where T <: Union{Ref{WGPUVariable}, Scalar, JLExpr} = union(s, map(x->symbols(Set(), x), a)...)
+
+function symbols(callexpr::CallExpr)
+    argsyms = union(Set(), symbols(callexpr.args))
+    union(Set(), symbols(callexpr.func), argsyms)
+end
+
+symbols(s::Set, callexpr::CallExpr) = union(s, symbols(Set(), callexpr.func), symbols(Set(), callexpr.args))
+
+function typeInfer(scope::Scope, cExpr::CallExpr)
 	# @assert allequal(cExpr.args) "All aguments are expected to be same"
-	if symbol(cExpr) in [:Float32, :UInt32, :Int32, ] # TODO update this list
-		return eval(symbol(cExpr))
-	end
-	(found, location, rootScope) = findVar(scope, symbol(cExpr.func))
-	if found && location == :typeScope
-		tVar = rootScope.typeVars[cExpr.func |> symbol]
+   	if symbols(cExpr) in [:Float32, :UInt32, :Int32, ] # TODO update this list
+  		return eval(symbols(cExpr) |> pop!)
+   	end
+	(found, location, rootScope) = findVar(scope, symbols(cExpr.func) |> pop!)
+	if found && location == :typesym
+		tVar = rootScope.typeVars[cExpr.func |> symbols |> pop!]
 		if tVar.dataType <: Number
 			return tVar.dataType
 		end
@@ -65,7 +81,8 @@ struct IndexExpr <: JLExpr
 	idx::Union{Ref{WGPUVariable}, Scalar, JLExpr}
 end
 
-symbol(idxExpr::IndexExpr) = symbol(idxExpr.sym)
+symbols(idxExpr::IndexExpr) = symbols(idxExpr.sym)
+symbols(s::Set, idxExpr::IndexExpr) = union(s, symbols(Set(), idxExpr.sym))
 
 function indexExpr(scope::Scope, sym::Union{Symbol, Expr}, idx::Union{Symbol, Number, Expr})
 	symExpr = inferExpr(scope, sym)
@@ -76,14 +93,14 @@ end
 isMutable(idxExpr::IndexExpr) = isMutable(idxExpr.sym)
 setMutable!(idxExpr::IndexExpr, b::Bool) = setMutable!(idxExpr.sym, b)
 
-typeInfer(scope::Scope, idxExpr::IndexExpr) = begin
+function typeInfer(scope::Scope, idxExpr::IndexExpr)
 	idx = idxExpr.idx
 	# TODO handle scalar cases for indexing ...
 	if typeof(idx) == Scalar
 		idx = Scalar(idx.element |> UInt32)
 	end
 	ty = typeInfer(scope, idx)
-	@assert ty <: Integer "types do not match $(symbol(idx))::$ty vs UInt32"
+	@assert ty <: Integer "types do not match $(symbols(idx))::$ty vs UInt32"
 	# TODO we might have to deal with multi-indexing
 	return eltype(typeInfer(scope, idxExpr.sym))
 end
@@ -112,9 +129,10 @@ function accessExpr(scope::Scope, parent::Expr, field::Symbol)
 	return aExpr
 end
 
-symbol(access::AccessExpr) = symbol(access.sym)
+symbols(access::AccessExpr) = symbols(access.sym)
+symbols(s::Set, access::AccessExpr) = union(s, symbols(Set(), access.sym))
 
-typeInfer(scope::Scope, axsExpr::AccessExpr) = fieldtype(typeInfer(scope, axsExpr.sym), symbol(axsExpr.field))
+typeInfer(scope::Scope, axsExpr::AccessExpr) = fieldtype(typeInfer(scope, axsExpr.sym), symbols(axsExpr.field) |> pop!)
 
 struct TypeExpr <: JLExpr
 	sym::Ref{WGPUVariable}
@@ -128,11 +146,17 @@ function typeExpr(scope, a::Symbol, b::Vector{Any})
 	return TypeExpr(aExpr, bExpr)
 end
 
-symbol(tExpr::TypeExpr) = (symbol(tExpr.sym), map(x -> symbol(x), tExpr.types)...)
+symbols(tExpr::TypeExpr) = Set((symbols(tExpr.sym), map(symbols, tExpr.types)...))
+symbols(s::Set, tExpr::TypeExpr) = union(
+        s,
+        symbols(s, tExpr.sym),
+        map(x->symbols(s, x), tExpr.types)
+)
 
-typeInfer(scope::Scope, tExpr::TypeExpr) = begin
-	if symbol(tExpr)[1] == :WgpuArray # Hardcoded
-		return typeInfer(scope, tExpr, Val(symbol(tExpr)[1]))
+function typeInfer(scope::Scope, tExpr::TypeExpr)
+    tsym = symbols(tExpr.sym) |> pop!
+	if (tsym) == :WgpuArray # Hardcoded
+		return typeInfer(scope, tExpr, Val(tsym))
 	else
 		return typeInfer(scope, tExpr.sym)
 	end
@@ -149,7 +173,7 @@ function declExpr(scope, a::Symbol, b::Symbol)
 		error("Duplication declaration of variable $a")
 	end
 	(found, location, rootScope) = findVar(scope, b)
-	if found && location == :typeScope
+	if found && location == :typesym
 		b = rootScope.typeVars[b].dataType
 	end
 	aExpr = inferExpr(scope, a)
@@ -173,16 +197,17 @@ end
 isMutable(decl::DeclExpr) = isMutable(decl.sym[])
 setMutable!(decl::DeclExpr, b::Bool) = setMutable!(decl.sym[], b)
 
-symbol(decl::DeclExpr) = symbol(decl.sym[])
+symbols(decl::DeclExpr) = symbols(decl.sym[])
+symbols(s::Set, decl::DeclExpr) = union(s, symbols(s, decl.sym[]))
 
-typeInfer(scope::Scope, declexpr::DeclExpr) = begin
-	sym = symbol(declexpr)
+function typeInfer(scope::Scope, declexpr::DeclExpr)
+	sym = symbols(declexpr) |> pop!
 	(found, location, rootScope) = findVar(scope, sym)
-	if found == false && location != :typeScope
-		scope.locals[sym] = declexpr.sym
-		var = scope.locals[sym]
+	if found == false && location != :typesym
+		scope.localVars[sym] = declexpr.sym
+		var = scope.localVars[sym]
 		setproperty!(var[], :dataType, declexpr.dataType)
-	else found == true && scope.depth == rootScope.depth
+	elseif (found == true) && location != :newsym && (scope.depth == rootScope.depth)
 		error("duplicate declaration of a variable $sym is not allowed in wgsl though julia allows it")
 	end
 	typeInfer(scope, declexpr.sym)

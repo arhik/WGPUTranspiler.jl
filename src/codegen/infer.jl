@@ -68,13 +68,16 @@ function inferExpr(scope::Scope, a::Symbol)
 		var[] = WGPUVariable(a, Any, Generic, nothing, false, true)
 		scope.newVars[a] = var
 	elseif found == true && location == :modulesym
-		var[] = rootScope.globals[a]
+		var = rootScope.moduleVars[a]
 		var[].undefined = false
 	elseif found == true && location == :typesym
-		var[] = rootScope.typeVars[a]
+		var = rootScope.typeVars[a]
 		var[].undefined = false
-	else found == true && location == :localsym
+	elseif found == true && location == :localsym
 		var = rootScope.localVars[a]
+		var[].undefined = false
+	elseif found == true && location == :newsym
+	    var = rootScope.newVars[a]
 		var[].undefined = false
 	end
 	return var

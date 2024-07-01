@@ -30,8 +30,10 @@ mutable struct WGPUVariable <: JLVariable
 	undefined::Bool
 end
 
-symbol(var::WGPUVariable) = var.sym
-symbol(var::Ref{WGPUVariable}) = var[].sym
+symbols(var::WGPUVariable) = symbols(var.sym)
+symbols(s::Set, var::WGPUVariable) = union(s, symbols(var))
+symbols(var::Ref{WGPUVariable}) = symbols(var[].sym)
+symbols(s::Set, var::Ref{WGPUVariable}) = union(s, symbols(var))
 
 isMutable(var::WGPUVariable) = var.mutable
 isMutable(var::Ref{WGPUVariable}) = var[].mutable

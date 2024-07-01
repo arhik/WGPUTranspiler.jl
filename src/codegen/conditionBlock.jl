@@ -18,4 +18,5 @@ function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
 	return IfBlock(condExpr, exprArray, scope)
 end
 
-symbol(iff::IfBlock) = (symbol(iff.cond), map(symbol, iff.block)...)
+symbols(iff::IfBlock) = Set((symbols(iff.cond), map(symbols, iff.block)...))
+symbols(s::Set, iff::IfBlock) = union(s, symbols(s, iff.cond), map(x->symbols(s, x), iff.block)...)
