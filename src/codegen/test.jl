@@ -169,7 +169,7 @@ scope = Scope(
 	Dict(), 0, nothing, quote end
 )
 # TODO ScopeError
-@test_throws KeyError inferExpr(scope, :(a::Int32 = g(a + b + c) + g(2, 3, c)))
+@test_throws AssertionError inferExpr(scope, :(a::Int32 = g(a + b + c) + g(2, 3, c)))
 
 # This should fail too datatypes are different
 scope = Scope(
