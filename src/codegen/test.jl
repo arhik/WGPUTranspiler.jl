@@ -272,7 +272,8 @@ scope = Scope(
 		makeVarPair(:c=>WgpuArray{Float32, 16}),
 		makeVarPair(:d=>WgpuArray{Float32, 16}),
 		makeVarPair(:println=>Function),
-		makeVarPair(:(+)=>Function)
+		makeVarPair(:(+)=>Function),
+		makeVarPair(:(%)=>Function),
 	), Dict(), Dict(), 0, nothing, quote end
 )
 

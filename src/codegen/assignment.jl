@@ -214,7 +214,6 @@ function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
   		# TODO this should be ScopeError
    	    @assert (location in (nothing, :newsym)) == false "RHS variable $rsym should be in scope."
    	end
-    @infiltrate
 	rhsType = typeInfer(scope, rhsExpr)
 	lExpr = inferExpr(scope, lhs)
 	lhsExpr = Ref{LHS}()

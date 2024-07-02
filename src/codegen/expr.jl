@@ -72,7 +72,7 @@ function typeInfer(scope::Scope, cExpr::CallExpr)
 		end
 	elseif found && location == :modulesym # TODO update this list
 		# If call function is cast function force type output
-       	if csym in [:Float32, :UInt32, :Int32, ] # TODO update this list
+       	if csym in (:Float32, :UInt32, :Int32) # TODO update this list
       		return eval(csym)
         elseif scope.moduleVars[][cExpr.func |> symbols |> first][].dataType == Function
 			return typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
