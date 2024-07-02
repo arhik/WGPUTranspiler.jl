@@ -41,7 +41,7 @@ end
 	)
 	scopeCopy = deepcopy(scope)
 	aExpr = inferExpr(scope, :(b))
-	@test scope.moduleVars == Dict()
+	@test scope.moduleVars[] == Dict()
 	@test Base.isequal(scope, scopeCopy)
 	#@test (aExpr[]).dataType == Int32
 	@test isequal(aExpr, scope.localVars[:b])
@@ -62,7 +62,7 @@ end
 	scopeCopy = deepcopy(scope)
 	aExpr = inferExpr(scope, :(a))
 	@test aExpr[].undefined == true
-	@test !(scope.moduleVars == Dict())
+	@test !(scope.moduleVars[] == Dict())
 	@test !Base.isequal(scope, scopeCopy)
 	@test (aExpr[]).dataType == Any
 	@test isequal(aExpr, scope.localVars[:a])

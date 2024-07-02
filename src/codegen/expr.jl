@@ -62,17 +62,26 @@ symbols(s::Set, callexpr::CallExpr) = union(s, symbols(Set(), callexpr.func), sy
 
 function typeInfer(scope::Scope, cExpr::CallExpr)
 	# @assert allequal(cExpr.args) "All aguments are expected to be same"
-   	if symbols(cExpr) in [:Float32, :UInt32, :Int32, ] # TODO update this list
-  		return eval(symbols(cExpr) |> pop!)
-   	end
-	(found, location, rootScope) = findVar(scope, symbols(cExpr.func) |> pop!)
+	csyms = symbols(Set(), cExpr)
+	csym = csyms |> first
+	(found, location, rootScope) = findVar(scope, csym)
 	if found && location == :typesym
-		tVar = rootScope.typeVars[cExpr.func |> symbols |> pop!]
+		tVar = rootScope.typeVars[csym]
 		if tVar[].dataType <: Number
 			return tVar[].dataType
 		end
-	end
-	typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
+	elseif found && location == :modulesym # TODO update this list
+		# If call function is cast function force type output
+       	if csym in [:Float32, :UInt32, :Int32, ] # TODO update this list
+      		return eval(csym)
+        elseif scope.moduleVars[][cExpr.func |> symbols |> pop!][].dataType == Function
+			return typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
+		else
+			@error "typeInfer $(csym)($(csyms[2:end])) failed!!!"
+		end
+  	else
+        @error "Type inference failed for callExpr $csym !!!!"
+    end
 end
 
 # IndexExpressions

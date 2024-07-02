@@ -9,13 +9,13 @@ struct IfBlock <: JLBlock
 end
 
 function ifBlock(scope::Scope, cond::Expr, block::Vector{Any})
-	childScope = Scope(Dict(), Dict(), Dict(), scope.depth + 1, scope, :())
+	childScope = Scope(Dict(), scope.moduleVars[], Dict(), scope.depth + 1, scope, :())
 	condExpr = inferExpr(scope, cond)
 	exprArray = JLExpr[]
 	for jlexpr in block
 		push!(exprArray, inferExpr(childScope, jlexpr))
 	end
-	return IfBlock(condExpr, exprArray, scope)
+	return IfBlock(condExpr, exprArray, childScope)
 end
 
 symbols(iff::IfBlock) = Set((symbols(iff.cond), map(symbols, iff.block)...))

@@ -4,7 +4,7 @@ export Scope, getDataTypeFrom, getDataType, getGlobalScope, findVar
 struct Scope
 	localVars::Dict{Symbol, Ref{WGPUVariable}}
 	newVars::Dict{Symbol, Ref{WGPUVariable}}
-	moduleVars::Dict{Symbol, Ref{WGPUVariable}}
+	moduleVars::Ref{Dict{Symbol, Ref{WGPUVariable}}}
 	typeVars::Dict{Symbol, Ref{WGPUVariable}}
 	depth::Int
 	parent::Union{Nothing, Scope}
@@ -31,7 +31,7 @@ function findVar(scope::Union{Nothing, Scope}, sym::Symbol)
 	end
 	localsyms  = keys(scope.localVars)
 	newsyms  = keys(scope.newVars)
-	modulesyms = keys(scope.moduleVars)
+	modulesyms = keys(scope.moduleVars[])
 	typesyms   = keys(scope.typeVars)
 	if (sym in localsyms)
 		return (true, :localsym, scope)
@@ -64,7 +64,7 @@ function getDataTypeFrom(scope::Union{Nothing, Scope}, location, var::Symbol)
 	elseif location == :localsym
 		return getindex(scope.localVars[var]).dataType
 	elseif location == :modulesym
-		return getindex(scope.moduleVars[var]).dataType
+		return getindex(scope.moduleVars[][var]).dataType
 	elseif location == :typesym
 		return getindex(scope.typeVars[var]).dataType
 	end
@@ -83,15 +83,15 @@ end
 function Base.isequal(scope::Scope, other::Scope)
 	length(scope.localVars) == length(other.localVars) &&
 	keys(scope.localVars) == keys(other.localVars) &&
-	length(scope.moduleVars) == length(other.moduleVars) &&
-	keys(scope.moduleVars) == keys(other.moduleVars) &&
+	length(scope.moduleVars[]) == length(other.moduleVars[]) &&
+	keys(scope.moduleVars[]) == keys(other.moduleVars[]) &&
 	for (key, value) in scope.localVars
 		if !Base.isequal(other.localVars[key][], value[])
 			return false
 		end
 	end
-	for (key, value) in scope.moduleVars
-		if Base.isequal(other.moduleVars[key][], value[])
+	for (key, value) in scope.moduleVars[]
+		if Base.isequal(other.moduleVars[][key][], value[])
 			return false
 		end
 	end

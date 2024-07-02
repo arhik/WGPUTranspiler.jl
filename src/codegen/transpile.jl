@@ -31,7 +31,6 @@ transpile(scope::Scope, binOp::BinaryOp, op::Val{:(-=)}) = :($(transpile(scope, 
 function transpile(scope::Scope, a::AssignmentExpr)
 	lExpr = transpile(scope, a.lhs)
 	rExpr = transpile(scope, a.rhs)
-	rType = typeInfer(scope, a.rhs)
 	if typeof(a.lhs.expr) == DeclExpr
 		#(found, location, rootScope) = findVar(scope, symbols(a.lhs))
 		#if found && location != :typesym
