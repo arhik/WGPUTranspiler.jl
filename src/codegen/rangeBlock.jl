@@ -23,15 +23,15 @@ function rangeBlock(scope::Scope, idx::Symbol, range::Expr, block::Vector{Any})
 	rangeExpr = inferRange(childScope, range)
 	startExpr = rangeExpr.start
 	if typeof(startExpr) == Ref{WGPUVariable}
-		childScope.localVars[][symbols(startExpr) |> pop!] = startExpr[].sym
+		childScope.localVars[][symbols(startExpr) |> first] = startExpr[].sym
 	end
   	stopExpr =  rangeExpr.stop
 	if typeof(stopExpr) == Ref{WGPUVariable}
-		childScope.localVars[][symbols(stopExpr) |> pop!] = stopExpr[].sym
+		childScope.localVars[][symbols(stopExpr) |> first] = stopExpr[].sym
 	end
 	stepExpr = rangeExpr.step
 	if typeof(stepExpr) == Ref{WGPUVariable}
-		childScope.localVars[][symbols(stepExpr) |> pop!] = stepExpr[].sym
+		childScope.localVars[][symbols(stepExpr) |> first] = stepExpr[].sym
 	end
 	idxExpr = inferExpr(childScope, :($idx::UInt32))
 	# TMPFIX_BEGIN

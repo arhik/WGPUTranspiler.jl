@@ -3,7 +3,7 @@ export Scalar, assignExpr
 function typeInfer(scope::Scope, var::WGPUVariable)
     sym = symbols(var)
     @assert length(sym) == 1 "WGPUVariable should be a holder of single variable"
-    varsym = pop!(sym)
+    varsym = first(sym)
 	(found, location, rootScope) = findVar(scope, varsym)
 	#issamescope = rootScope.depth == scope.depth
 	# @assert issamescope "Not on same scope! What to do ?"
@@ -92,16 +92,16 @@ function assignExpr(scope, lhs::Expr, rhs::Number)
 	lExpr = inferExpr(scope, lhs)
 	rhsExpr = RHS(Scalar(rhs))
 	rhsType = typeInfer(scope, rhsExpr)
-	(lhsfound, lhslocation, lhsScope) = findVar(scope, symbols(lExpr) |> pop!)
+	(lhsfound, lhslocation, lhsScope) = findVar(scope, symbols(lExpr) |> first)
 	lhsExpr = Ref{LHS}()
 	if typeof(lExpr) == IndexExpr
 		if lhsfound && lhslocation == :localsym
-			lvar = lhsScope.localVars[lExpr |> symbols |> pop!]
+			lvar = lhsScope.localVars[lExpr |> symbols |> first]
 			lhsExpr[] = LHS(lExpr, false)
 			#rhsExpr = RHS(Scalar(rhs |> lExpr[].dataType))
 			setMutable!(lhsExpr[], true)
 		elseif lhsfound && lhslocation == :modulesym
-			lVar = lhsScope.moduleVars[][symbols(lExpr) |> pop!]
+			lVar = lhsScope.moduleVars[][symbols(lExpr) |> first]
 			lVarRef = Ref{WGPUVariable}(lVar)
 			#rhsExpr = RHS(Scalar(rhs |> eltype(lVar.dataType)))
 			lhsExpr[] = LHS(lExpr, false)
@@ -214,32 +214,33 @@ function assignExpr(scope, lhs::Expr, rhs::Union{Expr, Symbol})
   		# TODO this should be ScopeError
    	    @assert (location in (nothing, :newsym)) == false "RHS variable $rsym should be in scope."
    	end
+    @infiltrate
 	rhsType = typeInfer(scope, rhsExpr)
 	lExpr = inferExpr(scope, lhs)
 	lhsExpr = Ref{LHS}()
 	if typeof(lExpr) == IndexExpr
-		(found, location, rootScope) = findVar(scope, symbols(lExpr) |> pop!)
+		(found, location, rootScope) = findVar(scope, symbols(lExpr) |> first)
 		if found && location != :typesym
-			lvar = location == :localsym ? rootScope.localVars[symbols(lExpr) |> pop!] : rootScope.moduleVars[][symbols(lExpr) |> pop!]
+			lvar = location == :localsym ? rootScope.localVars[symbols(lExpr) |> first] : rootScope.moduleVars[][symbols(lExpr) |> first]
 			#lvar = rootScope.localVars[symbols(lExpr)]
 			lhsExpr[]  = LHS(lExpr, false)
 			lhsType = typeInfer(scope, lhsExpr[])
 			@assert lhsType == rhsType "$lhsType != $rhsType"
 			#setMutable!(lhsExpr[], true)
 		else found == false
-			error("LHS var $(symbols(lhs) |> pop!) had to be mutable for indexing")
+			error("LHS var $(symbols(lhs) |> first) had to be mutable for indexing")
 		end
 	elseif typeof(lExpr) == AccessExpr
-		(found, location, rootScope) = findVar(scope, symbols(lExpr) |> pop!)
+		(found, location, rootScope) = findVar(scope, symbols(lExpr) |> first)
 		if found && location !=:typesym
-			lExpr = rootScope.localVars[symbols(lExpr) |> pop!]
+			lExpr = rootScope.localVars[symbols(lExpr) |> first]
 			lhsExpr[] = LHS(lExpr[], false)
 			setMutable!(lhsExpr[], true)
 		else found == false
-			error("LHS var $(symbols(lhs) |> pop!) has to be mutable for `getproperty`")
+			error("LHS var $(symbols(lhs) |> first) has to be mutable for `getproperty`")
 		end
 	elseif typeof(lExpr) == DeclExpr
-        lsym = symbols(lExpr) |> pop!
+        lsym = symbols(lExpr) |> first
 		(found, location, rootScope) = findVar(scope, lsym)
 		if found && location ==:newsym
 			lhsExpr[] = LHS(lExpr, true)

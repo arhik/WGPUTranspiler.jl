@@ -74,12 +74,14 @@ function typeInfer(scope::Scope, cExpr::CallExpr)
 		# If call function is cast function force type output
        	if csym in [:Float32, :UInt32, :Int32, ] # TODO update this list
       		return eval(csym)
-        elseif scope.moduleVars[][cExpr.func |> symbols |> pop!][].dataType == Function
+        elseif scope.moduleVars[][cExpr.func |> symbols |> first][].dataType == Function
 			return typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
 		else
 			@error "typeInfer $(csym)($(csyms[2:end])) failed!!!"
 		end
-  	else
+    elseif found && location == :localsym
+        return typejoin(map(x -> typeInfer(scope, x), cExpr.args)...)
+    else
         @error "Type inference failed for callExpr $csym !!!!"
     end
 end
@@ -141,7 +143,7 @@ end
 symbols(access::AccessExpr) = symbols(access.sym)
 symbols(s::Set, access::AccessExpr) = union(s, symbols(Set(), access.sym))
 
-typeInfer(scope::Scope, axsExpr::AccessExpr) = fieldtype(typeInfer(scope, axsExpr.sym), symbols(axsExpr.field) |> pop!)
+typeInfer(scope::Scope, axsExpr::AccessExpr) = fieldtype(typeInfer(scope, axsExpr.sym), symbols(axsExpr.field) |> first)
 
 struct TypeExpr <: JLExpr
 	sym::Ref{WGPUVariable}
@@ -163,7 +165,7 @@ symbols(s::Set, tExpr::TypeExpr) = union(
 )
 
 function typeInfer(scope::Scope, tExpr::TypeExpr)
-    tsym = symbols(tExpr.sym) |> pop!
+    tsym = symbols(tExpr.sym) |> first
 	if (tsym) == :WgpuArray # Hardcoded
 		return typeInfer(scope, tExpr, Val(tsym))
 	else
@@ -210,7 +212,7 @@ symbols(decl::DeclExpr) = symbols(decl.sym[])
 symbols(s::Set, decl::DeclExpr) = union(s, symbols(s, decl.sym[]))
 
 function typeInfer(scope::Scope, declexpr::DeclExpr)
-	sym = symbols(declexpr) |> pop!
+	sym = symbols(declexpr) |> first
 	(found, location, rootScope) = findVar(scope, sym)
 	if found == false && location != :typesym
 		scope.localVars[sym] = declexpr.sym
