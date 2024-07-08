@@ -114,6 +114,12 @@ function transpile(scope::Scope, ifblock::IfBlock)
 	return :(@escif $(Expr(:if, c, quote $(block...) end)))
 end
 
+function transpile(scope::Scope, whileblock::WhileBlock)
+    c = transpile(whileblock.scope, whileblock.cond)
+    block = map(x -> transpile(scope, x), whileblock.block)
+    return :(@whileblock $(Expr(:while, c, quote $(block...) end)))
+end
+
 function transpile(scope::Scope, funcblk::FuncBlock)
 	fn = transpile(funcblk.scope, funcblk.fname)
 	fa = map(x -> transpile(scope, x), funcblk.fargs)
