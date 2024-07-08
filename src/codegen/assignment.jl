@@ -306,7 +306,6 @@ function compoundAssignExpr(scope::Scope, op::Symbol, lhs::Symbol, rhs::Expr)
     rhsExpr = RHS(inferExpr(scope, rhs))
 	rhsType = typeInfer(scope, rhsExpr)
 	rsyms = symbols(Set(), rhsExpr)
-	@infiltrate
 	for rsym in rsyms
 	   (found, location, rootScope) = findVar(scope, rsym)
 		# TODO this should be ScopeError
