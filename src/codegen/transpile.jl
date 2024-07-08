@@ -32,30 +32,12 @@ function transpile(scope::Scope, a::AssignmentExpr)
 	lExpr = transpile(scope, a.lhs)
 	rExpr = transpile(scope, a.rhs)
 	if typeof(a.lhs.expr) == DeclExpr
-		#(found, location, rootScope) = findVar(scope, symbols(a.lhs))
-		#if found && location != :typesym
-		#	lExpr = rootScope.localVars[symbols(a.lhs.expr)]
-		#	setMutable!(lExpr[], true)
-		#	setNew!(lExpr[], false)
-		#end
 	  	if isMutable(a.lhs)
 			return	:(@var $lExpr = $rExpr)
 		else
 			return :(@let $lExpr = $rExpr)
 		end
 	elseif typeof(a.lhs.expr) == Base.RefValue{WGPUVariable}
-		#(found, locations, rootScope) = findVar(scope, symbols(a.lhs))
-		#if found == false
-		#	scope.localVars[symbols(a.lhs)] = a.lhs.expr
-		#	setNew!(a.lhs.expr[], true)
-		#	setMutable!(a.lhs.expr[], false)
-		#elseif found == true
-		#	setNew!(a.lhs.expr[], false)
-		#	setMutable!(a.lhs.expr[], true)
-		#end
-		##if a.lhs.expr[].undefined == true
-		#	scope.localVars[symbols(a.lhs)] = a.lhs.expr
-		#end
 		if isNew(a.lhs)
 			return (isMutable(a.lhs) ? :(@var $lExpr = $rExpr) : :(@let $lExpr = $rExpr))
 		else
@@ -72,6 +54,26 @@ function transpile(scope::Scope, a::AssignmentExpr)
 	else
 		error("This shouldn't have been reached. Assignment LHS is $(typeof(a.lhs)) and RHS is $(typeof(a.rhs))")
 	end
+end
+
+function transpile(scope::Scope, a::AtomicAssignmentExpr)
+    lExpr = transpile(scope, a.lhs)
+    rExpr = transpile(scope, a.rhs)
+    if a.op == :(=)
+        return :(atomicStore(@ptr($lExpr), $rExpr))
+    elseif a.op == :(+=)
+        return :(atomicAdd(@ptr($lExpr), $rExpr))
+    elseif a.op == :(-=)
+        return :(atomicSub(@ptr($lExpr), $rExpr))
+    elseif a.op == :(|=)
+        return :(atomicOr(@ptr($lExpr), $rExpr))
+    elseif a.op == :(&=)
+        return :(atomicAnd(@ptr($lExpr), $rExpr))
+    elseif a.op == :(⊻=)
+        return :(atomicXor(@ptr($lExpr), $rExpr))
+    else
+        @error "Not Implemented: This compound assignment $(a.op) is yet to be covered"
+    end
 end
 
 function transpile(scope::Scope, cExpr::CallExpr)
@@ -147,7 +149,7 @@ function transpile(scope::Scope, computeBlk::ComputeBlock)
 end
 
 
-function transpile(scope::Scope, atomicExpr::WGPUAtomics)
+function transpile(scope::Scope, atomicExpr::AtomicExpr)
 	# TODO cover this for other atomics & better interface
 	if atomicExpr.expr isa BinaryExpr
 		op = atomicExpr.expr.op
@@ -158,5 +160,13 @@ function transpile(scope::Scope, atomicExpr::WGPUAtomics)
 			transpiledrExpr = (transpile(scope, rExpr))
 			return :(atomicAdd(@ptr($transpiledlExpr), @ptr($transpiledrExpr)))
 		end
+	elseif atomicExpr.expr isa DeclExpr
+	   return :(@atomicdecl $(transpile(scope, atomicExpr.expr)))
 	end
+end
+
+function transpile(scope::Scope, ca::CompoundAssignExpr)
+    lExpr = transpile(scope, ca.lhs)
+    rExpr = transpile(scope, ca.rhs)
+    return Expr(ca.op, lExpr, rExpr)
 end

@@ -223,3 +223,16 @@ function typeInfer(scope::Scope, declexpr::DeclExpr)
 	end
 	typeInfer(scope, declexpr.sym)
 end
+
+
+symbols(atomicexpr::AtomicExpr) = symbols(atomicexpr.expr)
+
+function typeInfer(scope::Scope, atomicexpr::AtomicExpr)
+    sym = symbols(atomicexpr) |> first
+    (found, location, rootScope) = findVar(scope, sym)
+
+    if found == true && location != :modulesym
+        @error "$sym should have been in module scope"
+    end
+    typeInfer(scope, atomicexpr.expr)
+end

@@ -206,5 +206,14 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 	end
 	fb = map(x -> inferExpr(scope, x), fbody)
 	ta = map(x -> inferExpr(scope, x), Targs)
+	for b in fb
+	   if b isa AtomicExpr
+			push!(scope.code.args,
+			quote
+			    @var WorkGroup $(b.expr |> symbols |> first)::Atomic{$(b.expr.dataType)}
+			end
+			)
+	   end
+	end
 	return ComputeBlock(fn, fa, ta, fb, scope, workgroupSize, workgroupCount, builtinArgs)
 end

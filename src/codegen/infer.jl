@@ -24,9 +24,9 @@ function inferExpr(scope::Scope, expr::Expr)
 	elseif @capture(expr, a_ == b_)
 		return binaryOp(scope, :(==), a, b)
 	elseif @capture(expr, a_ += b_)
-		return binaryOp(scope, :+=, a, b) # TODO this should be assignment expr
+		return compoundAssignExpr(scope, :+=, a, b) # TODO this should be assignment expr
 	elseif @capture(expr, a_ -= b_)
-		return binaryOp(scope, :-=, a, b) # TODO this should be assignment expr
+		return compoundAssignExpr(scope, :-=, a, b) # TODO this should be assignment expr
 	elseif @capture(expr, f_(args__))
 		return callExpr(scope, f, args)
 	elseif @capture(expr, a_::b_)

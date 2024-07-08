@@ -3,6 +3,7 @@ using CEnum
 export WGPUVariableAttribute
 
 @cenum WGPUVariableType begin
+    Atomic
 	Dims
 	Global
 	Local
