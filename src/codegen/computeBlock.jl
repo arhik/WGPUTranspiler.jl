@@ -12,6 +12,12 @@ struct WorkGroupDims
 	z::UInt32
 end
 
+struct WorkGroupCount
+    x::UInt32
+    y::UInt32
+    z::UInt32
+end
+
 struct WArray{T, N} end # TODO define these properly
 
 struct WArrayDims
@@ -47,7 +53,11 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 			@const workgroupDims = Vec3{UInt32}($(UInt32.(workgroupSize)...))
     	end
     )
+    push!(scope.code.args, quote
+        @const workgroupCount = Vec3{UInt32}($(UInt32.(workgroupCount)...))
+    end)
     # TODO include these only based on `symbols(funcblock)``
+    scope.moduleVars[][:workgroupCount] = makeVarPair(:workgroupCount => WorkGroupCount)
     scope.moduleVars[][:workgroupDims] = makeVarPair(:workgroupDims => WorkGroupDims)
     scope.moduleVars[][:workgroupId] = makeVarPair(:workgroupId=>WorkGroupId)
     scope.moduleVars[][:localId] = makeVarPair(:localId=>LocalInvocationId)
@@ -134,7 +144,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 				push!(
 					scope.code.args,
 					quote
-						@const $iovar::$(eltype(inarg)) = $(Meta.parse((wgslType(inarg))))
+						@const $iovar::$(eltype(inarg)) = $(wgslType(inarg))
 					end
 				)
 			elseif typeof(inarg) <: Function
