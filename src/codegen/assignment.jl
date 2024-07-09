@@ -8,9 +8,6 @@ function typeInfer(scope::Scope, var::WGPUVariable)
 	(found, location, rootScope) = findVar(scope, varsym)
 	#issamescope = rootScope.depth == scope.depth
 	# @assert issamescope "Not on same scope! What to do ?"
-	if varsym == :WgpuArray
-		return eval(varsym)
-	end
 	var.dataType = getDataTypeFrom(rootScope, location, varsym)
 	return var.dataType
 end
@@ -481,6 +478,10 @@ function compoundAssignExpr(scope::Scope, op::Symbol, lhs::Expr, rhs::Union{Expr
 			lhsExpr[]  = LHS(lExpr, false)
 			lhsType = typeInfer(scope, lhsExpr[])
 			@assert lhsType == rhsType "$lhsType != $rhsType"
+			targ = lExpr.sym[].dataType.parameters[1]
+			if targ != lhsType && startswith(string(targ), "WAtomic")
+			     return AtomicAssignmentExpr(lhsExpr[], rhsExpr, scope, op)
+			end
 			#setMutable!(lhsExpr[], true)
 		else found == false
 			error("LHS var $(symbols(lhs) |> first) had to be mutable for indexing")

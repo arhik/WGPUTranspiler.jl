@@ -90,7 +90,14 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 
 	# First consider only typesym
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
-		if @capture(symbolArg, iovar_::ioType_{T_, N_})
+		if @capture(symbolArg, iovar_::ioType_{W_{T_}, N_})
+		    if getkey(scope.typeVars, T, nothing) == nothing
+				scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
+			else
+			     v = getindex(scope.typeVars[T])
+				@assert v.dataType == eltype(inArg) "type parameter $T has conflicting types"
+			end
+		elseif @capture(symbolArg, iovar_::ioType_{T_, N_})
 			if getkey(scope.typeVars, T, nothing) == nothing
 				scope.typeVars[T] = makeVarPair(T=>eltype(inArg))
 			else
@@ -108,7 +115,9 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 
 	# Second consider other variables
 	for (inArg, symbolArg) in zip(funcArgs, fargs)
-		if @capture(symbolArg, iovar_::ioType_{T_, N_})
+	    if @capture(symbolArg, iovar_::ioType_{W_{T_}, N_})
+			# do nothing
+		elseif @capture(symbolArg, iovar_::ioType_{T_, N_})
 			# do nothing
 		elseif @capture(symbolArg, iovar_::ioType_)
 			if ioType == :Function
@@ -123,7 +132,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 	end
 
 	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
-		if @capture(symbolarg, iovar_::ioType_{T_, N_})
+	   if @capture(symbolarg, iovar_::ioType_{T_, N_})
 			# TODO instead of assert we should branch for each case of argument
 			if ioType == :WgpuArray
 				dimsVar = Symbol(iovar, :Dims)
@@ -156,7 +165,20 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 	end
 	bindingCount = 0
 	for (idx, (inarg, symbolarg)) in enumerate(zip(funcArgs, fargs))
-		if @capture(symbolarg, iovar_::ioType_{T_, N_})
+        if @capture(symbolarg, iovar_::ioType_{W_{T_}, N_})
+            arrayLen = reduce(*, size(inarg))
+            if ioType == :WgpuArray && W == :WAtomic
+                push!(
+                    scope.code.args,
+                   	quote
+                        @var StorageReadWrite 0 $(bindingCount) $(iovar)::Array{Atomic{$(eltype(inarg))}, $(arrayLen)}
+                   	end
+                )
+                bindingCount += 1
+            else
+                @error "Not Implemented: Case other than WAtomic needs to be implemented"
+            end
+        elseif @capture(symbolarg, iovar_::ioType_{T_, N_})
 			# TODO instead of assert we should branch for each case of argument
 			@assert ioType == :WgpuArray # "Expecting WgpuArray Type, received $ioType instead"
 			arrayLen = reduce(*, size(inarg))
@@ -204,6 +226,7 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
 		(arg.sym[]).varAttr = WGPUVariableAttribute(0, bindingCount)
 		bindingCount += 1
 	end
+
 	fb = map(x -> inferExpr(scope, x), fbody)
 	ta = map(x -> inferExpr(scope, x), Targs)
 	for b in fb

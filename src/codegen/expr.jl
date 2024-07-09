@@ -146,10 +146,9 @@ symbols(s::Set, access::AccessExpr) = union(s, symbols(Set(), access.sym))
 typeInfer(scope::Scope, axsExpr::AccessExpr) = fieldtype(typeInfer(scope, axsExpr.sym), symbols(axsExpr.field) |> first)
 
 struct TypeExpr <: JLExpr
-	sym::Ref{WGPUVariable}
-	types::Vector{Ref{WGPUVariable}}
+	sym::Union{Ref{WGPUVariable}, TypeExpr}
+	types::Vector{Union{Ref{WGPUVariable}, TypeExpr}}
 end
-
 
 function typeExpr(scope, a::Symbol, b::Vector{Any})
 	aExpr = inferExpr(scope, a)
@@ -166,9 +165,9 @@ symbols(s::Set, tExpr::TypeExpr) = union(
 
 function typeInfer(scope::Scope, tExpr::TypeExpr)
     tsym = symbols(tExpr.sym) |> first
-	if (tsym) == :WgpuArray # Hardcoded
+	if (tsym) in [:WgpuArray, :WAtomic] # Hardcoded
 		return typeInfer(scope, tExpr, Val(tsym))
-	else
+    else
 		return typeInfer(scope, tExpr.sym)
 	end
 end
