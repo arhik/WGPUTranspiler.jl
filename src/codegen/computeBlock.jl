@@ -73,6 +73,11 @@ function computeBlock(scope, islaunch, wgSize, wgCount, shmem, funcName, funcArg
         scope.moduleVars[][dtype] = makeVarPair(dtype=>Function)
     end
 
+    arrayTypes = [:Mat4, :Mat3, :Mat2, :Vec2, :Vec3, :Vec4, :SVector, :SMatrix, :MVector, :MMatrix]
+    for arrayType in arrayTypes
+        scope.moduleVars[][arrayType] = makeVarPair(arrayType=>Function)
+    end
+
     # Put common ops in module scope
     ops = [:(+), :(-), :(*), :(/), :(%)]
     for op in ops

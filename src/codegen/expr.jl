@@ -136,7 +136,7 @@ end
 function accessExpr(scope::Scope, parent::Expr, field::Symbol)
 	parentExpr = inferExpr(scope, parent)
 	childExpr = inferExpr(scope, field)
-	aExpr = AccessExpr(symExpr, fieldExpr)
+	aExpr = AccessExpr(parentExpr, childExpr)
 	return aExpr
 end
 
@@ -157,11 +157,13 @@ function typeExpr(scope, a::Symbol, b::Vector{Any})
 end
 
 symbols(tExpr::TypeExpr) = Set((symbols(tExpr.sym), map(symbols, tExpr.types)...))
-symbols(s::Set, tExpr::TypeExpr) = union(
+symbols(s::Set, tExpr::TypeExpr) = begin
+    union(
         s,
-        symbols(s, tExpr.sym),
-        map(x->symbols(s, x), tExpr.types)
-)
+        symbols(Set(), tExpr.sym),
+        symbols(Set(), tExpr.types)
+    )
+end
 
 function typeInfer(scope::Scope, tExpr::TypeExpr)
     tsym = symbols(tExpr.sym) |> first
